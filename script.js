@@ -273,11 +273,13 @@ function addLayerFromGeojson(geojson, name = null, color = null, opacity = 0.4, 
         userLayers.push({
             name: name,
             layer: layer,
-            wkt: wktString,
+            content: JSON.stringify(geoJsonData),
+            contentType: 'geojson',
             color: color,
             opacity: opacity,
             visible: true,
             originalFillOpacity: opacity,
+            order: userLayers.length,
         });
         
         // Add click events for popup
@@ -371,7 +373,16 @@ function addLayerFromWkt(wkt, name = null, color = null, opacity = 0.4, silent =
                 if (success) {
                     featureGroup.addTo(baseLayerGroup);
                     const layerIndex = userLayers.length;
-                    userLayers.push({ layer: featureGroup, wkt, color, opacity, name, visible: true });
+                    userLayers.push({ 
+                        layer: featureGroup, 
+                        content: wkt, 
+                        contentType: 'wkt',
+                        color, 
+                        opacity, 
+                        name, 
+                        visible: true,
+                        order: userLayers.length
+                    });
                     addClickEventsToLayer(featureGroup, name, layerIndex);
                     updateLayerList();
                     map.fitBounds(featureGroup.getBounds(), { padding: [20, 20] });
@@ -398,7 +409,16 @@ function addLayerFromWkt(wkt, name = null, color = null, opacity = 0.4, silent =
             }
             leafletLayer.addTo(baseLayerGroup);
             const layerIndex = userLayers.length;
-            userLayers.push({ layer: leafletLayer, wkt, color, opacity, name, visible: true });
+            userLayers.push({ 
+                layer: leafletLayer, 
+                content: wkt, 
+                contentType: 'wkt',
+                color, 
+                opacity, 
+                name, 
+                visible: true,
+                order: userLayers.length
+            });
             addClickEventsToLayer(leafletLayer, name, layerIndex);
             updateLayerList();
             map.fitBounds(leafletLayer.getBounds(), { padding: [20, 20] });
@@ -550,9 +570,6 @@ function centerMapOnLayer(idx) {
             const bounds = layer.layer.getBounds();
             map.fitBounds(bounds, { padding: [20, 20] });
         }
-        
-        // Show toast to indicate the action
-        showToast(`📍 Centralizando em "${layer.name}"`, "info");
     } catch (error) {
         console.error("Erro ao centralizar na camada:", error);
         showToast("Erro ao centralizar na camada", "danger");
@@ -575,7 +592,7 @@ function openEditModal(idx) {
     
     if (modalLabel) modalLabel.textContent = "Editar Camada";
     if (nameInput) nameInput.value = userLayers[idx].name;
-    if (wktInput) wktInput.value = userLayers[idx].wkt;
+    if (wktInput) wktInput.value = userLayers[idx].content;
     if (submitBtn) submitBtn.textContent = "Salvar Alterações";
     
     addLayerModal.show();
@@ -649,6 +666,11 @@ function handleDrop(e) {
         userLayers.splice(draggedIdx, 1);
         userLayers.splice(targetIdx, 0, draggedLayer);
         
+        // Update order property in all layers
+        userLayers.forEach((layer, index) => {
+            layer.order = index;
+        });
+        
         // Update map layers order
         baseLayerGroup.clearLayers();
         [...userLayers].reverse().forEach((l) => {
@@ -657,8 +679,9 @@ function handleDrop(e) {
             }
         });
         
-        // Update the list
+        // Update the list and save
         updateLayerList();
+        debouncedAutoSave();
     }
     
     return false;
@@ -1329,12 +1352,14 @@ function convertFeatureCollectionToGeojson(input) {
 
 // Storage functions
 function saveLayersToLocalStorage(showNotification = false) {
-    const layersData = userLayers.map((layer) => ({
+    const layersData = userLayers.map((layer, index) => ({
         name: layer.name,
-        wkt: layer.wkt,
+        content: layer.content,
+        contentType: layer.contentType,
         color: layer.color,
         opacity: layer.opacity,
-        visible: layer.visible !== false
+        visible: layer.visible !== false,
+        order: layer.order !== undefined ? layer.order : index
     }));
     localStorage.setItem("savedLayers", JSON.stringify(layersData));
     
@@ -1427,9 +1452,15 @@ function loadLayersFromLocalStorage(showNotification = false) {
             userLayers = [];
         }
 
-        layersData.forEach((layerData) => {
+        // Sort layers by order to maintain correct sequence
+        const sortedLayers = layersData.sort((a, b) => (a.order || 0) - (b.order || 0));
+        
+        sortedLayers.forEach((layerData) => {
+            // Determine content to use (backwards compatibility)
+            const content = layerData.content || layerData.wkt;
+            
             // Add layer with all saved properties (silently)
-            const success = addLayerToMap(layerData.wkt, layerData.name, layerData.color, layerData.opacity, true);
+            const success = addLayerToMap(content, layerData.name, layerData.color, layerData.opacity, true);
             if (success && layerData.visible === false) {
                 // Hide layer if it was hidden
                 const lastLayerIndex = userLayers.length - 1;
@@ -1508,11 +1539,13 @@ function exportLayers() {
         return;
     }
 
-    const layersData = userLayers.map((layer) => ({
+    const layersData = userLayers.map((layer, index) => ({
         name: layer.name,
-        wkt: layer.wkt,
+        content: layer.content,
+        contentType: layer.contentType,
         color: layer.color,
         opacity: layer.opacity,
+        order: layer.order !== undefined ? layer.order : index
     }));
 
     const dataStr = JSON.stringify(layersData, null, 2);
@@ -1549,9 +1582,13 @@ function importLayers(file) {
                 }
 
                 let addedCount = 0;
-                layersData.forEach((layerData) => {
-                    if (layerData.wkt && layerData.name) {
-                        const success = addLayerToMap(layerData.wkt, layerData.name, layerData.color || getRandomColor(), layerData.opacity !== undefined ? layerData.opacity : 0.4, true);
+                // Sort by order if available
+                const sortedData = layersData.sort((a, b) => (a.order || 0) - (b.order || 0));
+                
+                sortedData.forEach((layerData) => {
+                    const content = layerData.content || layerData.wkt; // Backwards compatibility
+                    if (content && layerData.name) {
+                        const success = addLayerToMap(content, layerData.name, layerData.color || getRandomColor(), layerData.opacity !== undefined ? layerData.opacity : 0.4, true);
                         if (success) addedCount++;
                     }
                 });
@@ -1794,7 +1831,7 @@ document.addEventListener("DOMContentLoaded", function () {
         isAddingManualLayer = true;
         editingLayerIdx = null;
         document.getElementById("addLayerModalLabel").textContent = "Adicionar Camada Manualmente";
-        document.getElementById("editLayerName").value = "";
+        document.getElementById("editLayerName").value = `Camada ${userLayers.length + 1}`;
         document.getElementById("editLayerWKT").value = "";
         document.getElementById("submitLayerBtn").textContent = "Adicionar Camada";
         addLayerModal.show();
