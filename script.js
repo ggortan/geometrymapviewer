@@ -721,26 +721,32 @@ function updateLayerList() {
     
     userLayers.forEach((l, idx) => {
         const li = document.createElement("li");
-        li.className = "list-group-item d-flex align-items-center justify-content-between draggable-layer clickable-layer";
+        li.className = "list-group-item draggable-layer clickable-layer";
         li.draggable = true;
         li.dataset.idx = idx;
         li.title = "Clique para centralizar no mapa";
         li.innerHTML = `
-            <span class="drag-handle" title="Arraste para reordenar">
-                <i class="fas fa-grip-vertical"></i>
-            </span>
-            <span class="layer-controls">
-                <input type="color" value="${rgb2hex(l.color)}" style="width: 32px; height: 32px; border: none; vertical-align: middle;" data-idx="${idx}" class="layer-color-picker" title="Cor da camada">
-                <input type="range" min="0" max="1" step="0.05" value="${l.opacity}" data-idx="${idx}" class="layer-opacity-slider" style="width:80px; vertical-align: middle;" title="Transparência">
-                <button class="btn btn-sm btn-light visibility-toggle" data-idx="${idx}" title="Alternar visibilidade">
-                    <i class="fas ${l.visible !== false ? 'fa-eye' : 'fa-eye-slash'}"></i>
-                </button>
-                <strong style="margin-left:8px;" class="layer-name">${l.name}</strong>
-            </span>
-            <span class="layer-buttons">
-                <button class="btn btn-sm btn-warning edit-layer" data-idx="${idx}" title="Editar camada"><i class="fas fa-edit"></i></button>
-                <button class="btn btn-sm btn-danger remove-layer" data-idx="${idx}" title="Remover camada"><i class="fas fa-trash"></i></button>
-            </span>
+            <div class="layer-item-content">
+                <div class="layer-name-row">
+                    <span class="drag-handle" title="Arraste para reordenar">
+                        <i class="fas fa-grip-vertical"></i>
+                    </span>
+                    <span class="layer-name">${l.name}</span>
+                    <span class="layer-buttons">
+                        <button class="btn btn-sm btn-warning edit-layer" data-idx="${idx}" title="Editar camada"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-danger remove-layer" data-idx="${idx}" title="Remover camada"><i class="fas fa-trash"></i></button>
+                    </span>
+                </div>
+                <div class="layer-controls-row">
+                    <span class="layer-controls">
+                        <input type="color" value="${rgb2hex(l.color)}" style="width: 32px; height: 32px; border: none; vertical-align: middle;" data-idx="${idx}" class="layer-color-picker" title="Cor da camada">
+                        <input type="range" min="0" max="1" step="0.05" value="${l.opacity}" data-idx="${idx}" class="layer-opacity-slider" style="width:80px; vertical-align: middle;" title="Transparência">
+                        <button class="btn btn-sm btn-light visibility-toggle" data-idx="${idx}" title="Alternar visibilidade">
+                            <i class="fas ${l.visible !== false ? 'fa-eye' : 'fa-eye-slash'}"></i>
+                        </button>
+                    </span>
+                </div>
+            </div>
         `;
         list.appendChild(li);
     });
