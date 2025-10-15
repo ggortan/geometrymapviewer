@@ -4,6 +4,7 @@ let userLayers = [];
 let addLayerModal;
 let editingLayerIdx = null;
 let isAddingManualLayer = false;
+let autoSaveTimeout = null;
 
 // Initialize map on page load
 function initializeMap() {
@@ -200,7 +201,7 @@ function detectGeometryFormat(input) {
     return "unknown";
 }
 
-function addLayerFromGeojson(geojson, name = null, color = null, opacity = 0.4) {
+function addLayerFromGeojson(geojson, name = null, color = null, opacity = 0.4, silent = false) {
     if (!map) {
         map = L.map("map", {
             fullscreenControl: true,
@@ -286,31 +287,37 @@ function addLayerFromGeojson(geojson, name = null, color = null, opacity = 0.4) 
             console.warn("Erro ao ajustar zoom:", fitError);
         }
         
-        showToast(`Camada "${name}" adicionada com sucesso!`, "success");
-        saveLayersToLocalStorage();
+        if (!silent) {
+            showToast(`Camada "${name}" adicionada com sucesso!`, "success");
+        }
+        debouncedAutoSave();
         
         return true;
     } catch (error) {
         console.error("Erro ao adicionar camada GeoJSON:", error);
-        showToast(`Erro ao adicionar camada: ${error.message}`, "danger");
+        if (!silent) {
+            showToast(`Erro ao adicionar camada: ${error.message}`, "danger");
+        }
         return false;
     }
 }
 
-function addLayerToMap(input, name = null, color = null, opacity = 0.4) {
+function addLayerToMap(input, name = null, color = null, opacity = 0.4, silent = false) {
     const format = detectGeometryFormat(input);
     
     if (format === "geojson") {
-        return addLayerFromGeojson(input, name, color, opacity);
+        return addLayerFromGeojson(input, name, color, opacity, silent);
     } else if (format === "wkt") {
-        return addLayerFromWkt(input, name, color, opacity);
+        return addLayerFromWkt(input, name, color, opacity, silent);
     } else {
-        showToast("Formato de geometria não reconhecido. Use WKT ou GeoJSON.", "danger");
+        if (!silent) {
+            showToast("Formato de geometria não reconhecido. Use WKT ou GeoJSON.", "danger");
+        }
         return false;
     }
 }
 
-function addLayerFromWkt(wkt, name = null, color = null, opacity = 0.4) {
+function addLayerFromWkt(wkt, name = null, color = null, opacity = 0.4, silent = false) {
     if (!map) {
         map = L.map("map", {
             fullscreenControl: true,
@@ -395,7 +402,9 @@ function addLayerFromWkt(wkt, name = null, color = null, opacity = 0.4) {
         }
     } catch (e) {
         console.error("Erro ao adicionar camada:", e);
-        showToast("Não foi possível adicionar a camada. Verifique o formato WKT.", "danger");
+        if (!silent) {
+            showToast("Não foi possível adicionar a camada. Verifique o formato WKT.", "danger");
+        }
         return false;
     }
 }
@@ -509,7 +518,7 @@ function toggleLayerVisibility(idx) {
     updateLayerList();
     
     // Auto-save after visibility change
-    setTimeout(() => saveLayersToLocalStorage(), 100);
+    debouncedAutoSave();
 }
 
 function centerMapOnLayer(idx) {
@@ -1297,7 +1306,7 @@ function convertFeatureCollectionToGeojson(input) {
 }
 
 // Storage functions
-function saveLayersToLocalStorage() {
+function saveLayersToLocalStorage(showNotification = false) {
     const layersData = userLayers.map((layer) => ({
         name: layer.name,
         wkt: layer.wkt,
@@ -1306,7 +1315,23 @@ function saveLayersToLocalStorage() {
         visible: layer.visible !== false
     }));
     localStorage.setItem("savedLayers", JSON.stringify(layersData));
-    showToast("Camadas salvas com sucesso!", "success");
+    
+    // Only show notification when explicitly requested (manual save)
+    if (showNotification) {
+        showToast("Camadas salvas com sucesso!", "success");
+    }
+}
+
+function debouncedAutoSave() {
+    // Clear existing timeout
+    if (autoSaveTimeout) {
+        clearTimeout(autoSaveTimeout);
+    }
+    
+    // Set new timeout for auto-save (silent)
+    autoSaveTimeout = setTimeout(() => {
+        saveLayersToLocalStorage(false);
+    }, 300); // Wait 300ms before saving
 }
 
 function saveUISettings() {
@@ -1367,7 +1392,7 @@ function loadUISettings() {
     }
 }
 
-function loadLayersFromLocalStorage() {
+function loadLayersFromLocalStorage(showNotification = false) {
     try {
         const savedData = localStorage.getItem("savedLayers");
         if (!savedData) return false;
@@ -1381,8 +1406,8 @@ function loadLayersFromLocalStorage() {
         }
 
         layersData.forEach((layerData) => {
-            // Add layer with all saved properties
-            const success = addLayerToMap(layerData.wkt, layerData.name, layerData.color, layerData.opacity);
+            // Add layer with all saved properties (silently)
+            const success = addLayerToMap(layerData.wkt, layerData.name, layerData.color, layerData.opacity, true);
             if (success && layerData.visible === false) {
                 // Hide layer if it was hidden
                 const lastLayerIndex = userLayers.length - 1;
@@ -1390,11 +1415,16 @@ function loadLayersFromLocalStorage() {
             }
         });
 
-        showToast("Camadas carregadas com sucesso!", "info");
+        // Only show notification when explicitly requested
+        if (showNotification) {
+            showToast(`${layersData.length} camadas carregadas com sucesso!`, "info");
+        }
         return true;
     } catch (error) {
         console.error("Erro ao carregar camadas:", error);
-        showToast("Erro ao carregar camadas salvas", "danger");
+        if (showNotification) {
+            showToast("Erro ao carregar camadas salvas", "danger");
+        }
         return false;
     }
 }
@@ -1499,14 +1529,14 @@ function importLayers(file) {
                 let addedCount = 0;
                 layersData.forEach((layerData) => {
                     if (layerData.wkt && layerData.name) {
-                        const success = addLayerToMap(layerData.wkt, layerData.name, layerData.color || getRandomColor(), layerData.opacity !== undefined ? layerData.opacity : 0.4);
+                        const success = addLayerToMap(layerData.wkt, layerData.name, layerData.color || getRandomColor(), layerData.opacity !== undefined ? layerData.opacity : 0.4, true);
                         if (success) addedCount++;
                     }
                 });
 
                 if (addedCount > 0) {
                     showToast(`\${addedCount} camadas importadas com sucesso!`, "success");
-                    saveLayersToLocalStorage();
+                    debouncedAutoSave();
                     resolve(true);
                 } else {
                     throw new Error("Nenhuma camada válida encontrada no arquivo");
@@ -1763,7 +1793,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (isAddingManualLayer) {
             console.log("Adding new layer"); // Debug log
             addLayerToMap(newWKT, newName);
-            showToast("Camada adicionada com sucesso!", "success");
+            // Toast is already shown by addLayerToMap function
             addLayerModal.hide();
             isAddingManualLayer = false;
             return;
@@ -1914,7 +1944,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // Storage event listeners
-    document.getElementById("saveLayersBtn")?.addEventListener("click", saveLayersToLocalStorage);
+    document.getElementById("saveLayersBtn")?.addEventListener("click", () => saveLayersToLocalStorage(true));
     document.getElementById("exportLayersBtn")?.addEventListener("click", exportLayers);
     
     // Toggle notifications button
@@ -1957,10 +1987,10 @@ document.addEventListener("DOMContentLoaded", function () {
         }, 500);
     });
 
-    // Auto-save events
+    // Auto-save events (silent with debounce)
     const autoSaveEvents = ["layer-added", "layer-removed", "layer-edited", "layer-moved"];
     autoSaveEvents.forEach((eventName) => {
-        document.addEventListener(eventName, saveLayersToLocalStorage);
+        document.addEventListener(eventName, debouncedAutoSave);
     });
 
     // Override functions to dispatch events
