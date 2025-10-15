@@ -161,7 +161,7 @@ function addLayerToMap(wkt, name = null, color = null, opacity = 0.4) {
                 if (success) {
                     featureGroup.addTo(baseLayerGroup);
                     const layerIndex = userLayers.length;
-                    userLayers.push({ layer: featureGroup, wkt, color, opacity, name });
+                    userLayers.push({ layer: featureGroup, wkt, color, opacity, name, visible: true });
                     addClickEventsToLayer(featureGroup, name, layerIndex);
                     updateLayerList();
                     map.fitBounds(featureGroup.getBounds(), { padding: [20, 20] });
@@ -188,7 +188,7 @@ function addLayerToMap(wkt, name = null, color = null, opacity = 0.4) {
             }
             leafletLayer.addTo(baseLayerGroup);
             const layerIndex = userLayers.length;
-            userLayers.push({ layer: leafletLayer, wkt, color, opacity, name });
+            userLayers.push({ layer: leafletLayer, wkt, color, opacity, name, visible: true });
             addClickEventsToLayer(leafletLayer, name, layerIndex);
             updateLayerList();
             map.fitBounds(leafletLayer.getBounds(), { padding: [20, 20] });
@@ -297,6 +297,19 @@ function updateLayerOpacity(idx, opacity) {
     }
 }
 
+function toggleLayerVisibility(idx) {
+    const layer = userLayers[idx];
+    layer.visible = layer.visible !== false ? false : true;
+    
+    if (layer.visible) {
+        baseLayerGroup.addLayer(layer.layer);
+    } else {
+        baseLayerGroup.removeLayer(layer.layer);
+    }
+    
+    updateLayerList();
+}
+
 function openEditModal(idx) {
     if (!addLayerModal) {
         console.error("Modal não foi inicializado");
@@ -309,24 +322,40 @@ function openEditModal(idx) {
     const modalLabel = document.getElementById("addLayerModalLabel");
     const nameInput = document.getElementById("editLayerName");
     const wktInput = document.getElementById("editLayerWKT");
+    const submitBtn = document.getElementById("submitLayerBtn");
     
     if (modalLabel) modalLabel.textContent = "Editar Camada";
     if (nameInput) nameInput.value = userLayers[idx].name;
     if (wktInput) wktInput.value = userLayers[idx].wkt;
+    if (submitBtn) submitBtn.textContent = "Salvar Alterações";
     
     addLayerModal.show();
 }
 
 function setupDragAndDrop() {
     const layerItems = document.querySelectorAll('.draggable-layer');
+    const dragHandles = document.querySelectorAll('.drag-handle');
     
+    // Remove draggable from li elements
     layerItems.forEach(item => {
-        item.addEventListener('dragstart', handleDragStart);
+        item.draggable = false;
         item.addEventListener('dragover', handleDragOver);
         item.addEventListener('dragenter', handleDragEnter);
         item.addEventListener('dragleave', handleDragLeave);
         item.addEventListener('drop', handleDrop);
         item.addEventListener('dragend', handleDragEnd);
+    });
+    
+    // Add draggable only to drag handles
+    dragHandles.forEach(handle => {
+        const parentItem = handle.closest('.draggable-layer');
+        handle.addEventListener('mousedown', () => {
+            parentItem.draggable = true;
+        });
+        handle.addEventListener('mouseup', () => {
+            parentItem.draggable = false;
+        });
+        parentItem.addEventListener('dragstart', handleDragStart);
     });
 }
 
@@ -373,7 +402,11 @@ function handleDrop(e) {
         
         // Update map layers order
         baseLayerGroup.clearLayers();
-        [...userLayers].reverse().forEach((l) => baseLayerGroup.addLayer(l.layer));
+        [...userLayers].reverse().forEach((l) => {
+            if (l.visible !== false) {
+                baseLayerGroup.addLayer(l.layer);
+            }
+        });
         
         // Update the list
         updateLayerList();
@@ -430,7 +463,10 @@ function updateLayerList() {
             <span class="layer-controls">
                 <input type="color" value="${rgb2hex(l.color)}" style="width: 32px; height: 32px; border: none; vertical-align: middle;" data-idx="${idx}" class="layer-color-picker" title="Cor da camada">
                 <input type="range" min="0" max="1" step="0.05" value="${l.opacity}" data-idx="${idx}" class="layer-opacity-slider" style="width:80px; vertical-align: middle;" title="Transparência">
-                <strong style="margin-left:8px;">${l.name}</strong>
+                <button class="btn btn-sm btn-light visibility-toggle" data-idx="${idx}" title="Alternar visibilidade">
+                    <i class="fas ${l.visible !== false ? 'fa-eye' : 'fa-eye-slash'}"></i>
+                </button>
+                <strong style="margin-left:8px; cursor: pointer;" class="layer-name" data-idx="${idx}" title="Clique para centralizar no mapa">${l.name}</strong>
             </span>
             <span class="layer-buttons">
                 <button class="btn btn-sm btn-warning edit-layer" data-idx="${idx}" title="Editar camada"><i class="fas fa-edit"></i></button>
@@ -465,6 +501,13 @@ function updateLayerList() {
     document.querySelectorAll(".layer-opacity-slider").forEach((input) => {
         input.addEventListener("input", (e) => {
             updateLayerOpacity(Number(input.dataset.idx), Number(input.value));
+        });
+    });
+
+    document.querySelectorAll(".visibility-toggle").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            toggleLayerVisibility(Number(btn.dataset.idx));
         });
     });
 
@@ -1051,7 +1094,7 @@ document.addEventListener("DOMContentLoaded", function () {
                             </div>
                             <div class="text-end">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="submit" class="btn btn-primary">Adicionar Camada</button>
+                                <button type="submit" class="btn btn-primary" id="submitLayerBtn">Adicionar Camada</button>
                             </div>
                         </form>
                     </div>
@@ -1172,6 +1215,7 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("addLayerModalLabel").textContent = "Adicionar Camada Convertida";
         document.getElementById("editLayerName").value = `Camada \${userLayers.length + 1}`;
         document.getElementById("editLayerWKT").value = wkt;
+        document.getElementById("submitLayerBtn").textContent = "Adicionar Camada";
         addLayerModal.show();
     };
 
@@ -1181,6 +1225,7 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("addLayerModalLabel").textContent = "Adicionar Camada Manualmente";
         document.getElementById("editLayerName").value = "";
         document.getElementById("editLayerWKT").value = "";
+        document.getElementById("submitLayerBtn").textContent = "Adicionar Camada";
         addLayerModal.show();
     });
 
@@ -1227,7 +1272,11 @@ document.addEventListener("DOMContentLoaded", function () {
             addClickEventsToLayer(leafletLayer, newName, editingLayerIdx);
 
             baseLayerGroup.clearLayers();
-            userLayers.forEach((l) => baseLayerGroup.addLayer(l.layer));
+            userLayers.forEach((l) => {
+                if (l.visible !== false) {
+                    baseLayerGroup.addLayer(l.layer);
+                }
+            });
             updateLayerList();
             showToast("Camada editada com sucesso!", "success");
             addLayerModal.hide();
