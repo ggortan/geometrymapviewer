@@ -119,7 +119,143 @@ function getRandomColor() {
     return `hsl(${hue}, 70%, 60%)`;
 }
 
-function addLayerToMap(wkt, name = null, color = null, opacity = 0.4) {
+function detectGeometryFormat(input) {
+    const trimmed = input.trim();
+    
+    // Try to parse as JSON first
+    try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed.type && (
+            parsed.type === "Feature" || 
+            parsed.type === "FeatureCollection" ||
+            ["Point", "LineString", "Polygon", "MultiPoint", "MultiLineString", "MultiPolygon", "GeometryCollection"].includes(parsed.type)
+        )) {
+            return "geojson";
+        }
+    } catch (e) {
+        // Not JSON, continue
+    }
+    
+    // Check for WKT patterns
+    const wktPattern = /^(POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|MULTIPOLYGON|GEOMETRYCOLLECTION)\s*\(/i;
+    if (wktPattern.test(trimmed)) {
+        return "wkt";
+    }
+    
+    return "unknown";
+}
+
+function addLayerFromGeojson(geojson, name = null, color = null, opacity = 0.4) {
+    if (!map) {
+        map = L.map("map", {
+            fullscreenControl: true,
+        }).setView([0, 0], 2);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {}).addTo(map);
+    }
+    if (!baseLayerGroup) {
+        baseLayerGroup = L.layerGroup().addTo(map);
+    }
+    
+    color = color || getRandomColor();
+    name = name || `Camada ${userLayers.length + 1}`;
+    
+    try {
+        let geoJsonData;
+        if (typeof geojson === 'string') {
+            geoJsonData = JSON.parse(geojson);
+        } else {
+            geoJsonData = geojson;
+        }
+        
+        const layer = L.geoJSON(geoJsonData, {
+            style: {
+                color: color,
+                fillColor: color,
+                fillOpacity: opacity,
+                opacity: Math.min(opacity + 0.2, 1),
+                weight: opacity === 0 ? 0 : 2,
+            },
+            pointToLayer: function(feature, latlng) {
+                return L.circleMarker(latlng, {
+                    radius: 6,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: opacity,
+                    opacity: Math.min(opacity + 0.2, 1),
+                    weight: 2
+                });
+            }
+        });
+        
+        layer.addTo(baseLayerGroup);
+        
+        // Convert back to WKT for storage compatibility
+        let wktString = "";
+        try {
+            if (geoJsonData.type === "FeatureCollection") {
+                const wkts = geoJsonData.features.map(feature => {
+                    const wkt = new Wkt.Wkt();
+                    wkt.read(feature.geometry);
+                    return wkt.write();
+                });
+                wktString = wkts.join('\n');
+            } else if (geoJsonData.type === "Feature") {
+                const wkt = new Wkt.Wkt();
+                wkt.read(geoJsonData.geometry);
+                wktString = wkt.write();
+            } else {
+                const wkt = new Wkt.Wkt();
+                wkt.read(geoJsonData);
+                wktString = wkt.write();
+            }
+        } catch (e) {
+            console.warn("Erro ao converter GeoJSON para WKT:", e);
+            wktString = JSON.stringify(geoJsonData);
+        }
+        
+        userLayers.push({
+            name: name,
+            layer: layer,
+            wkt: wktString,
+            color: color,
+            opacity: opacity,
+            visible: true,
+            originalFillOpacity: opacity,
+        });
+        
+        updateLayerList();
+        
+        try {
+            map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+        } catch (fitError) {
+            console.warn("Erro ao ajustar zoom:", fitError);
+        }
+        
+        showToast(`Camada "${name}" adicionada com sucesso!`, "success");
+        saveLayersToLocalStorage();
+        
+        return true;
+    } catch (error) {
+        console.error("Erro ao adicionar camada GeoJSON:", error);
+        showToast(`Erro ao adicionar camada: ${error.message}`, "danger");
+        return false;
+    }
+}
+
+function addLayerToMap(input, name = null, color = null, opacity = 0.4) {
+    const format = detectGeometryFormat(input);
+    
+    if (format === "geojson") {
+        return addLayerFromGeojson(input, name, color, opacity);
+    } else if (format === "wkt") {
+        return addLayerFromWkt(input, name, color, opacity);
+    } else {
+        showToast("Formato de geometria não reconhecido. Use WKT ou GeoJSON.", "danger");
+        return false;
+    }
+}
+
+function addLayerFromWkt(wkt, name = null, color = null, opacity = 0.4) {
     if (!map) {
         map = L.map("map", {
             fullscreenControl: true,
@@ -973,6 +1109,138 @@ function concatenateMultipoints(input) {
     return "MULTIPOINT(" + points.map((pt) => "(" + pt + ")").join(", ") + ")";
 }
 
+// GeoJSON conversion functions
+function convertWktToGeojson(input) {
+    try {
+        const lines = input.split('\n').filter(line => line.trim() !== '');
+        const features = [];
+        
+        lines.forEach(line => {
+            const wkt = new Wkt.Wkt();
+            try {
+                wkt.read(line.trim());
+                const geojson = wkt.toJson();
+                
+                features.push({
+                    type: "Feature",
+                    properties: {},
+                    geometry: geojson
+                });
+            } catch (e) {
+                console.warn('Erro ao converter WKT:', line, e);
+            }
+        });
+        
+        if (features.length === 0) {
+            return "Nenhuma geometria WKT válida encontrada.";
+        }
+        
+        if (features.length === 1) {
+            return JSON.stringify(features[0].geometry, null, 2);
+        }
+        
+        return JSON.stringify({
+            type: "FeatureCollection",
+            features: features
+        }, null, 2);
+        
+    } catch (error) {
+        return `Erro na conversão WKT para GeoJSON: ${error.message}`;
+    }
+}
+
+function convertGeojsonToWkt(input) {
+    try {
+        const geojson = JSON.parse(input.trim());
+        const results = [];
+        
+        if (geojson.type === "FeatureCollection") {
+            geojson.features.forEach(feature => {
+                const wkt = new Wkt.Wkt();
+                wkt.read(feature.geometry);
+                results.push(wkt.write());
+            });
+        } else if (geojson.type === "Feature") {
+            const wkt = new Wkt.Wkt();
+            wkt.read(geojson.geometry);
+            results.push(wkt.write());
+        } else if (geojson.type) {
+            // É uma geometria direta
+            const wkt = new Wkt.Wkt();
+            wkt.read(geojson);
+            results.push(wkt.write());
+        } else {
+            return "Formato GeoJSON inválido.";
+        }
+        
+        return results.join('\n');
+        
+    } catch (error) {
+        return `Erro na conversão GeoJSON para WKT: ${error.message}`;
+    }
+}
+
+function convertGeojsonToFeatureCollection(input) {
+    try {
+        const geojson = JSON.parse(input.trim());
+        
+        if (geojson.type === "FeatureCollection") {
+            return JSON.stringify(geojson, null, 2);
+        }
+        
+        let features = [];
+        
+        if (geojson.type === "Feature") {
+            features.push(geojson);
+        } else if (geojson.type) {
+            // É uma geometria direta
+            features.push({
+                type: "Feature",
+                properties: {},
+                geometry: geojson
+            });
+        } else {
+            return "Formato GeoJSON inválido.";
+        }
+        
+        return JSON.stringify({
+            type: "FeatureCollection",
+            features: features
+        }, null, 2);
+        
+    } catch (error) {
+        return `Erro na conversão para FeatureCollection: ${error.message}`;
+    }
+}
+
+function convertFeatureCollectionToGeojson(input) {
+    try {
+        const featureCollection = JSON.parse(input.trim());
+        
+        if (featureCollection.type !== "FeatureCollection") {
+            return "A entrada deve ser uma FeatureCollection.";
+        }
+        
+        if (!featureCollection.features || featureCollection.features.length === 0) {
+            return "FeatureCollection vazia ou inválida.";
+        }
+        
+        const geometries = featureCollection.features.map(feature => feature.geometry);
+        
+        if (geometries.length === 1) {
+            return JSON.stringify(geometries[0], null, 2);
+        }
+        
+        return JSON.stringify({
+            type: "GeometryCollection",
+            geometries: geometries
+        }, null, 2);
+        
+    } catch (error) {
+        return `Erro na conversão FeatureCollection: ${error.message}`;
+    }
+}
+
 // Storage functions
 function saveLayersToLocalStorage() {
     const layersData = userLayers.map((layer) => ({
@@ -1213,8 +1481,8 @@ document.addEventListener("DOMContentLoaded", function () {
                                 <input type="text" class="form-control" id="editLayerName" required>
                             </div>
                             <div class="mb-3">
-                                <label for="editLayerWKT" class="form-label">Conteúdo WKT</label>
-                                <textarea class="form-control" id="editLayerWKT" rows="4" required></textarea>
+                                <label for="editLayerWKT" class="form-label">Conteúdo (WKT ou GeoJSON)</label>
+                                <textarea class="form-control" id="editLayerWKT" rows="4" placeholder="Insira geometria WKT ou GeoJSON..." required></textarea>
                             </div>
                             <div class="text-end">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -1287,6 +1555,14 @@ document.addEventListener("DOMContentLoaded", function () {
             convertedText = convertMultipointToMultipolygon(input);
         } else if (conversionType.value === "concatenateMultipoints") {
             convertedText = concatenateMultipoints(input);
+        } else if (conversionType.value === "wktToGeojson") {
+            convertedText = convertWktToGeojson(input);
+        } else if (conversionType.value === "geojsonToWkt") {
+            convertedText = convertGeojsonToWkt(input);
+        } else if (conversionType.value === "geojsonToFeatureCollection") {
+            convertedText = convertGeojsonToFeatureCollection(input);
+        } else if (conversionType.value === "featureCollectionToGeojson") {
+            convertedText = convertFeatureCollectionToGeojson(input);
         } else {
             convertedText = "";
         }
@@ -1376,21 +1652,48 @@ document.addEventListener("DOMContentLoaded", function () {
 
         console.log("Editing layer at index:", editingLayerIdx); // Debug log
         baseLayerGroup.removeLayer(userLayers[editingLayerIdx].layer);
+        
+        const format = detectGeometryFormat(newWKT);
+        let leafletLayer;
+        
         try {
-            const wicket = new Wkt.Wkt();
-            wicket.read(newWKT);
-            const obj = wicket.toObject({
-                color: userLayers[editingLayerIdx].color,
-                fillColor: userLayers[editingLayerIdx].color,
-                fillOpacity: userLayers[editingLayerIdx].opacity,
-                opacity: Math.min(userLayers[editingLayerIdx].opacity + 0.2, 1),
-                weight: userLayers[editingLayerIdx].opacity === 0 ? 0 : 2,
-            });
-            let leafletLayer;
-            if (Array.isArray(obj)) {
-                leafletLayer = L.featureGroup(obj);
+            if (format === "geojson") {
+                const geoJsonData = JSON.parse(newWKT);
+                leafletLayer = L.geoJSON(geoJsonData, {
+                    style: {
+                        color: userLayers[editingLayerIdx].color,
+                        fillColor: userLayers[editingLayerIdx].color,
+                        fillOpacity: userLayers[editingLayerIdx].opacity,
+                        opacity: Math.min(userLayers[editingLayerIdx].opacity + 0.2, 1),
+                        weight: userLayers[editingLayerIdx].opacity === 0 ? 0 : 2,
+                    },
+                    pointToLayer: function(feature, latlng) {
+                        return L.circleMarker(latlng, {
+                            radius: 6,
+                            color: userLayers[editingLayerIdx].color,
+                            fillColor: userLayers[editingLayerIdx].color,
+                            fillOpacity: userLayers[editingLayerIdx].opacity,
+                            opacity: Math.min(userLayers[editingLayerIdx].opacity + 0.2, 1),
+                            weight: 2
+                        });
+                    }
+                });
             } else {
-                leafletLayer = obj;
+                const wicket = new Wkt.Wkt();
+                wicket.read(newWKT);
+                const obj = wicket.toObject({
+                    color: userLayers[editingLayerIdx].color,
+                    fillColor: userLayers[editingLayerIdx].color,
+                    fillOpacity: userLayers[editingLayerIdx].opacity,
+                    opacity: Math.min(userLayers[editingLayerIdx].opacity + 0.2, 1),
+                    weight: userLayers[editingLayerIdx].opacity === 0 ? 0 : 2,
+                });
+                
+                if (Array.isArray(obj)) {
+                    leafletLayer = L.featureGroup(obj);
+                } else {
+                    leafletLayer = obj;
+                }
             }
             leafletLayer.addTo(baseLayerGroup);
 
