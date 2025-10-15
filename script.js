@@ -1135,48 +1135,67 @@ function convertMultipolygonToPolygons(input) {
     if (!input.trim().toUpperCase().startsWith("MULTIPOLYGON")) {
         return "A entrada deve ser um MULTIPOLYGON.";
     }
-    const multipolygonMatch = input.match(/MULTIPOLYGON\s*\(\((.*?)\)\)/is);
+    
+    // Regex melhorada para capturar todo o conteúdo do MULTIPOLYGON
+    const multipolygonMatch = input.match(/MULTIPOLYGON\s*\(\s*(.*)\s*\)/is);
     if (!multipolygonMatch || !multipolygonMatch[1]) {
         return "Formato de MULTIPOLYGON inválido.";
     }
+    
     let content = multipolygonMatch[1];
     const polygons = [];
     let depth = 0, start = 0;
+    
     for (let i = 0; i < content.length; i++) {
         if (content[i] === "(") {
             if (depth === 0) start = i;
             depth++;
         } else if (content[i] === ")") {
             depth--;
-            if (depth === 0) polygons.push(content.substring(start, i + 1));
+            if (depth === 0) {
+                // Captura cada polígono completo ((coordenadas))
+                const polygonContent = content.substring(start, i + 1);
+                polygons.push(polygonContent);
+            }
         }
     }
-    return polygons.map((polygon) => `POLYGON (${polygon})`).join("\n");
+    
+    if (polygons.length === 0) {
+        return "Nenhum polígono válido encontrado no MULTIPOLYGON.";
+    }
+    
+    return polygons.map((polygon) => `POLYGON ${polygon}`).join("\n");
 }
 
 function concatenateMultipolygons(input) {
-    const regex = /MULTIPOLYGON\s*\(\s*(\(\(.*?\)\))\s*\)/gis;
+    // Regex melhorada para capturar MULTIPOLYGON completos
+    const regex = /MULTIPOLYGON\s*\(\s*(.*?)\s*\)/gis;
     let match;
     const allPolygons = [];
+    
     while ((match = regex.exec(input)) !== null) {
-        const group = match[1];
-        let depth = 0, start = -1;
-        for (let i = 0; i < group.length; i++) {
-            if (group[i] === "(") {
+        const content = match[1];
+        let depth = 0, start = 0;
+        
+        // Extrai cada polígono ((coordenadas)) do MULTIPOLYGON
+        for (let i = 0; i < content.length; i++) {
+            if (content[i] === "(") {
                 if (depth === 0) start = i;
                 depth++;
-            } else if (group[i] === ")") {
+            } else if (content[i] === ")") {
                 depth--;
-                if (depth === 0 && start !== -1) {
-                    allPolygons.push(group.substring(start, i + 1));
-                    start = -1;
+                if (depth === 0) {
+                    const polygonContent = content.substring(start, i + 1);
+                    allPolygons.push(polygonContent);
                 }
             }
         }
     }
+    
     if (allPolygons.length === 0) {
         return "Formato de entrada inválido. Verifique se os multipolígonos estão no formato correto.";
     }
+    
     return `MULTIPOLYGON (${allPolygons.join(",")})`;
 }
 
@@ -1765,6 +1784,91 @@ document.addEventListener("DOMContentLoaded", function () {
         if (map && layerGroup) layerGroup.clearLayers();
     });
 
+    // Função para testar todas as conversões
+    window.testAllConversions = function() {
+        console.log("🧪 Iniciando teste de todas as conversões...");
+        
+        const tests = [
+            {
+                name: "Polígonos para Multipolígono",
+                input: `POLYGON((-46.65 -23.55, -46.64 -23.55, -46.64 -23.54, -46.65 -23.54, -46.65 -23.55))
+POLYGON((-46.63 -23.56, -46.62 -23.56, -46.62 -23.55, -46.63 -23.55, -46.63 -23.56))`,
+                function: convertPolygonsToMultipolygon,
+                expectedPattern: /^MULTIPOLYGON/
+            },
+            {
+                name: "Multipolígono para Polígonos",
+                input: `MULTIPOLYGON (((-46.65 -23.55, -46.64 -23.55, -46.64 -23.54, -46.65 -23.54, -46.65 -23.55)),((-46.63 -23.56, -46.62 -23.56, -46.62 -23.55, -46.63 -23.55, -46.63 -23.56)))`,
+                function: convertMultipolygonToPolygons,
+                expectedPattern: /^POLYGON.*\nPOLYGON/
+            },
+            {
+                name: "WKT para GeoJSON",
+                input: `POLYGON((-46.6344 -23.5505, -46.6334 -23.5505, -46.6334 -23.5495, -46.6344 -23.5495, -46.6344 -23.5505))`,
+                function: convertWktToGeojson,
+                expectedPattern: /"type": "FeatureCollection"/
+            },
+            {
+                name: "GeoJSON para WKT",
+                input: `{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-46.6344, -23.5505],
+          [-46.6334, -23.5505],
+          [-46.6334, -23.5495],
+          [-46.6344, -23.5495],
+          [-46.6344, -23.5505]
+        ]]
+      }
+    }
+  ]
+}`,
+                function: convertGeojsonToWkt,
+                expectedPattern: /^POLYGON/
+            }
+        ];
+        
+        let passedTests = 0;
+        let totalTests = tests.length;
+        
+        tests.forEach((test, index) => {
+            try {
+                console.log(`\n📋 Teste ${index + 1}: ${test.name}`);
+                console.log("Input:", test.input.substring(0, 100) + (test.input.length > 100 ? "..." : ""));
+                
+                const result = test.function(test.input);
+                console.log("Output:", result.substring(0, 100) + (result.length > 100 ? "..." : ""));
+                
+                if (test.expectedPattern.test(result)) {
+                    console.log("✅ PASSOU");
+                    passedTests++;
+                } else {
+                    console.log("❌ FALHOU - Padrão esperado não encontrado");
+                }
+            } catch (error) {
+                console.log(`❌ FALHOU - Erro: ${error.message}`);
+            }
+        });
+        
+        console.log(`\n📊 Resultado dos testes: ${passedTests}/${totalTests} aprovados`);
+        
+        if (passedTests === totalTests) {
+            console.log("🎉 Todos os testes passaram!");
+            showToast(`Verificação completa: ${passedTests}/${totalTests} conversões funcionando corretamente!`, "success");
+        } else {
+            console.log("⚠️ Alguns testes falharam. Verifique o console para detalhes.");
+            showToast(`Verificação: ${passedTests}/${totalTests} conversões funcionando. Verifique o console.`, "warning");
+        }
+        
+        return passedTests === totalTests;
+    };
+
     copyBtn.addEventListener("click", function () {
         if (!outputText.value) {
             showToast("Não há resultado para copiar.", "warning");
@@ -1822,8 +1926,21 @@ document.addEventListener("DOMContentLoaded", function () {
         addAllExampleLayers();
     });
 
-    document.getElementById("exampleConversion").addEventListener("click", function () {
-        loadExampleConversion();
+    // Conversion examples
+    document.getElementById("examplePolygonToMulti").addEventListener("click", function () {
+        loadExamplePolygonToMulti();
+    });
+
+    document.getElementById("exampleMultiToPolygon").addEventListener("click", function () {
+        loadExampleMultiToPolygon();
+    });
+
+    document.getElementById("exampleWktToGeojson").addEventListener("click", function () {
+        loadExampleWktToGeojson();
+    });
+
+    document.getElementById("exampleGeojsonToWkt").addEventListener("click", function () {
+        loadExampleGeojsonToWkt();
     });
 
     // Sidebar toggle functionality
@@ -2124,7 +2241,7 @@ function toggleSidebar() {
 // Funções de exemplo
 function addAllExampleLayers() {
     // Exemplo 1: WKT Multipolígono
-    const multiPolygonWkt = `MULTIPOLYGON(((-46.65 -23.55, -46.64 -23.55, -46.64 -23.54, -46.65 -23.54, -46.65 -23.55)),((-46.63 -23.56, -46.62 -23.56, -46.62 -23.55, -46.63 -23.55, -46.63 -23.56)))`;
+    const multiPolygonWkt = `MULTIPOLYGON (((-46.6500610703074 -23.54958404010351, -46.64954192654952 -23.550975144602504, -46.648114281216465 -23.55052669804931, -46.64867335910935 -23.54913558880476, -46.6500610703074 -23.54958404010351)), ((-46.64724547099382 -23.54753825781242, -46.64704269532962 -23.548100058453656, -46.646745291022114 -23.54859163204476, -46.64664615625318 -23.548756866451555, -46.64656053986127 -23.54895101661573, -46.64622258042854 -23.54808353493128, -46.646276653939395 -23.548058749656192, -46.64602431089068 -23.547406069069112, -46.64633072744951 -23.547377152765677, -46.64661461337931 -23.547373021864843, -46.64693454831581 -23.547434985366266, -46.647105781098986 -23.547480425249418, -46.64724547099382 -23.54753825781242)))`;
     addLayerToMap(multiPolygonWkt, "Exemplo Multipolígono SP", "#e74c3c", 0.6, true);
     
     // Exemplo 2: WKT Multipoint
@@ -2167,19 +2284,59 @@ function addAllExampleLayers() {
     }
 }
 
-function loadExampleConversion() {
-    const inputText = document.getElementById("inputText");
-    const conversionType = document.getElementById("conversionType");
-    
-    // Exemplo: polígonos separados para converter em multipolígono
-    // Formatos WKT válidos com duplos parênteses
-    const examplePolygons = `POLYGON((-46.65 -23.55, -46.64 -23.55, -46.64 -23.54, -46.65 -23.54, -46.65 -23.55))
+// Funções de exemplo de conversão
+function loadExamplePolygonToMulti() {
+    const exampleData = `POLYGON((-46.65 -23.55, -46.64 -23.55, -46.64 -23.54, -46.65 -23.54, -46.65 -23.55))
 POLYGON((-46.63 -23.56, -46.62 -23.56, -46.62 -23.55, -46.63 -23.55, -46.63 -23.56))
 POLYGON((-46.67 -23.57, -46.66 -23.57, -46.66 -23.56, -46.67 -23.56, -46.67 -23.57))`;
     
+    loadConversionExample(exampleData, "polygonsToMultipolygon", "Polígonos para Multipolígono");
+}
+
+function loadExampleMultiToPolygon() {
+    const exampleData = `MULTIPOLYGON (((-46.65 -23.55, -46.64 -23.55, -46.64 -23.54, -46.65 -23.54, -46.65 -23.55)),((-46.63 -23.56, -46.62 -23.56, -46.62 -23.55, -46.63 -23.55, -46.63 -23.56)))`;
+    
+    loadConversionExample(exampleData, "multipolygonToPolygons", "Multipolígono para Polígonos");
+}
+
+function loadExampleWktToGeojson() {
+    const exampleData = `POLYGON((-46.6344 -23.5505, -46.6334 -23.5505, -46.6334 -23.5495, -46.6344 -23.5495, -46.6344 -23.5505))
+POINT(-46.6339 -23.5500)`;
+    
+    loadConversionExample(exampleData, "wktToGeojson", "WKT para GeoJSON");
+}
+
+function loadExampleGeojsonToWkt() {
+    const exampleData = `{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"name": "Praça da Sé"},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-46.6344, -23.5505],
+          [-46.6334, -23.5505],
+          [-46.6334, -23.5495],
+          [-46.6344, -23.5495],
+          [-46.6344, -23.5505]
+        ]]
+      }
+    }
+  ]
+}`;
+    
+    loadConversionExample(exampleData, "geojsonToWkt", "GeoJSON para WKT");
+}
+
+function loadConversionExample(data, conversionType, description) {
+    const inputText = document.getElementById("inputText");
+    const conversionSelect = document.getElementById("conversionType");
+    
     // Preencher os campos
-    inputText.value = examplePolygons;
-    conversionType.value = "polygonsToMultipolygon";
+    inputText.value = data;
+    conversionSelect.value = conversionType;
     
     // Atualizar o Select2 se estiver inicializado
     if (typeof $ !== 'undefined' && $('#conversionType').data('select2')) {
@@ -2202,5 +2359,5 @@ POLYGON((-46.67 -23.57, -46.66 -23.57, -46.66 -23.56, -46.67 -23.56, -46.67 -23.
         helpModal.hide();
     }
     
-    showToast("Exemplo carregado! Clique em 'Converter' para ver o resultado", "info");
+    showToast(`Exemplo de ${description} carregado! Clique em 'Converter' para ver o resultado`, "info");
 }
