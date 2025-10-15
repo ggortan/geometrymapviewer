@@ -248,8 +248,25 @@
                 });
             }
 
+            // Initialize map on page load
+            function initializeMap() {
+                if (!map) {
+                    map = L.map("map", {
+                        fullscreenControl: true,
+                    }).setView([0, 0], 2);
+                    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    }).addTo(map);
+                    layerGroup = L.layerGroup().addTo(map);
+                    baseLayerGroup = L.layerGroup().addTo(map);
+                }
+            }
+
             // Toggle converter section
             document.addEventListener("DOMContentLoaded", function () {
+                // Initialize the map immediately
+                initializeMap();
+
                 const toggleBtn = document.getElementById("toggleConverterBtn");
                 const converterSection = document.getElementById("converterSection");
                 
@@ -301,12 +318,9 @@
             }
 
             function plotWKTOnMap(wktString) {
+                // Ensure map is initialized
                 if (!map) {
-                    map = L.map("map", {
-                        fullscreenControl: true,
-                    }).setView([0, 0], 2);
-                    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {}).addTo(map);
-                    layerGroup = L.layerGroup().addTo(map);
+                    initializeMap();
                 }
                 layerGroup.clearLayers();
 
@@ -343,11 +357,9 @@
             }
 
             function addLayerToMap(wkt, name = null, color = null, opacity = 0.4) {
+                // Ensure map is initialized
                 if (!map) {
-                    map = L.map("map", {
-                        fullscreenControl: true,
-                    }).setView([0, 0], 2);
-                    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {}).addTo(map);
+                    initializeMap();
                 }
                 if (!baseLayerGroup) {
                     baseLayerGroup = L.layerGroup().addTo(map);
@@ -878,7 +890,10 @@
                 processShapefile(files)
                     .then((wktData) => {
                         // Adicionar o resultado ao textarea de saída
-                        outputText.value = wktData.wkt;
+                        const outputText = document.getElementById("outputText");
+                        if (outputText) {
+                            outputText.value = wktData.wkt;
+                        }
 
                         // Verificar se o WKT é válido
                         if (!wktData.wkt || wktData.wkt.trim() === "") {
@@ -901,7 +916,13 @@
 
                             if (success) {
                                 // Fechar o modal
-                                addLayerModal.hide();
+                                const addLayerModalElement = document.getElementById("addLayerModal");
+                                if (addLayerModalElement && window.bootstrap) {
+                                    const modalInstance = bootstrap.Modal.getInstance(addLayerModalElement);
+                                    if (modalInstance) {
+                                        modalInstance.hide();
+                                    }
+                                }
 
                                 // Mostrar mensagem de sucesso
                                 if (wktData.wkt.startsWith("GEOMETRYCOLLECTION")) {
@@ -1457,12 +1478,18 @@
                 // Código existente...
 
                 // Adicionar botões de salvar, exportar e importar
-                const buttonContainer = document.querySelector(".col-12.text-end.botoesmapa");
+                const buttonContainer = document.querySelector(".botoesmapa");
+                
+                // Verify the container exists
+                if (!buttonContainer) {
+                    console.error("Botão container não encontrado");
+                    return;
+                }
 
                 // Botão de salvar no localStorage
                 const saveBtn = document.createElement("button");
                 saveBtn.id = "saveLayersBtn";
-                saveBtn.className = "btn btn-warning ms-2";
+                saveBtn.className = "btn btn-warning btn-sm";
                 saveBtn.innerHTML = '<i class="fas fa-save"></i> Salvar Camadas';
                 saveBtn.title = "Salvar camadas no navegador";
                 buttonContainer.appendChild(saveBtn);
@@ -1470,7 +1497,7 @@
                 // Botão de exportar
                 const exportBtn = document.createElement("button");
                 exportBtn.id = "exportLayersBtn";
-                exportBtn.className = "btn btn-primary ms-2";
+                exportBtn.className = "btn btn-primary btn-sm ms-2";
                 exportBtn.innerHTML = '<i class="fas fa-file-export"></i> Exportar';
                 exportBtn.title = "Exportar camadas como arquivo";
                 buttonContainer.appendChild(exportBtn);
@@ -1478,7 +1505,7 @@
                 // Botão de importar
                 const importBtn = document.createElement("button");
                 importBtn.id = "importLayersBtn";
-                importBtn.className = "btn btn-secondary ms-2";
+                importBtn.className = "btn btn-secondary btn-sm ms-2";
                 importBtn.innerHTML = '<i class="fas fa-file-import"></i> Importar';
                 importBtn.title = "Importar camadas de arquivo";
                 buttonContainer.appendChild(importBtn);
