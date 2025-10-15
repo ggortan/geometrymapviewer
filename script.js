@@ -755,10 +755,6 @@ function updateLayerList() {
                         <i class="fas fa-grip-vertical"></i>
                     </span>
                     <span class="layer-name">${l.name}</span>
-                    <span class="layer-buttons">
-                        <button class="btn btn-sm btn-warning edit-layer" data-idx="${idx}" title="Editar camada"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-danger remove-layer" data-idx="${idx}" title="Remover camada"><i class="fas fa-trash"></i></button>
-                    </span>
                 </div>
                 <div class="layer-controls-row">
                     <span class="layer-controls">
@@ -767,6 +763,10 @@ function updateLayerList() {
                         <button class="btn btn-sm btn-light visibility-toggle" data-idx="${idx}" title="Alternar visibilidade">
                             <i class="fas ${l.visible !== false ? 'fa-eye' : 'fa-eye-slash'}"></i>
                         </button>
+                    </span>
+                    <span class="layer-buttons">
+                        <button class="btn btn-sm btn-warning edit-layer" data-idx="${idx}" title="Editar camada"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-danger remove-layer" data-idx="${idx}" title="Remover camada"><i class="fas fa-trash"></i></button>
                     </span>
                 </div>
             </div>
@@ -1574,7 +1574,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!isSidebarResizing) return;
             const dx = e.clientX - startSidebarX;
             let newWidth = startSidebarWidth - dx; // Invertido: arrastar esquerda aumenta, direita diminui
-            newWidth = Math.max(220, Math.min(600, newWidth));
+            newWidth = Math.max(340, Math.min(600, newWidth));
             sidebar.style.width = newWidth + 'px';
         });
         document.addEventListener('mouseup', function() {
