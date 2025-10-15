@@ -77,7 +77,7 @@ function showToast(message, type = "warning") {
     }
 }
 
-function plotWKTOnMap(wktString) {
+function plotWKTOnMap(geometryString) {
     if (!map) {
         map = L.map("map", {
             fullscreenControl: true,
@@ -87,30 +87,67 @@ function plotWKTOnMap(wktString) {
     }
     layerGroup.clearLayers();
 
-    wktString = wktString.trim();
-    if (wktString.startsWith("SELECT ST_GeomFromText")) {
-        wktString = wktString.replace(/^SELECT ST_GeomFromText\('(.+)'\)$/i, "$1");
+    geometryString = geometryString.trim();
+    if (geometryString.startsWith("SELECT ST_GeomFromText")) {
+        geometryString = geometryString.replace(/^SELECT ST_GeomFromText\('(.+)'\)$/i, "$1");
     }
 
+    const format = detectGeometryFormat(geometryString);
+    
     try {
-        const wicket = new Wkt.Wkt();
-        wicket.read(wktString);
-        const obj = wicket.toObject({
-            color: "#007bff",
-            fillColor: "#007bff",
-            fillOpacity: 0.3,
-            opacity: 0.5,
-            weight: 2,
-        });
-        if (Array.isArray(obj)) {
-            obj.forEach((o) => layerGroup.addLayer(o));
-            map.fitBounds(L.featureGroup(obj).getBounds(), { padding: [20, 20] });
+        let layerToAdd;
+        
+        if (format === "geojson") {
+            const geoJsonData = JSON.parse(geometryString);
+            layerToAdd = L.geoJSON(geoJsonData, {
+                style: {
+                    color: "#007bff",
+                    fillColor: "#007bff",
+                    fillOpacity: 0.3,
+                    opacity: 0.5,
+                    weight: 2,
+                },
+                pointToLayer: function(feature, latlng) {
+                    return L.circleMarker(latlng, {
+                        radius: 6,
+                        color: "#007bff",
+                        fillColor: "#007bff",
+                        fillOpacity: 0.3,
+                        opacity: 0.5,
+                        weight: 2
+                    });
+                }
+            });
         } else {
-            layerGroup.addLayer(obj);
-            map.fitBounds(obj.getBounds(), { padding: [20, 20] });
+            // WKT format
+            const wicket = new Wkt.Wkt();
+            wicket.read(geometryString);
+            const obj = wicket.toObject({
+                color: "#007bff",
+                fillColor: "#007bff",
+                fillOpacity: 0.3,
+                opacity: 0.5,
+                weight: 2,
+            });
+            
+            if (Array.isArray(obj)) {
+                layerToAdd = L.featureGroup(obj);
+            } else {
+                layerToAdd = obj;
+            }
         }
+        
+        layerGroup.addLayer(layerToAdd);
+        
+        try {
+            map.fitBounds(layerToAdd.getBounds(), { padding: [20, 20] });
+        } catch (boundsError) {
+            console.warn("Não foi possível ajustar o zoom:", boundsError);
+        }
+        
     } catch (e) {
-        showToast("Não foi possível plotar o resultado. Verifique o formato WKT.", "danger");
+        console.error("Erro ao plotar geometria:", e);
+        showToast("Não foi possível plotar o resultado. Verifique o formato da geometria.", "danger");
     }
 }
 
@@ -1337,6 +1374,28 @@ function loadLayersFromLocalStorage() {
     }
 }
 
+function clearAllData() {
+    // Clear all layers from map
+    if (baseLayerGroup) {
+        baseLayerGroup.clearLayers();
+    }
+    if (layerGroup) {
+        layerGroup.clearLayers();
+    }
+    
+    // Clear userLayers array
+    userLayers = [];
+    
+    // Update layer list display
+    updateLayerList();
+    
+    // Clear localStorage
+    localStorage.removeItem("savedLayers");
+    localStorage.removeItem("uiSettings");
+    
+    showToast("Todos os dados foram limpos!", "info");
+}
+
 function exportLayers() {
     if (userLayers.length === 0) {
         showToast("Não há camadas para exportar", "warning");
@@ -1566,7 +1625,13 @@ document.addEventListener("DOMContentLoaded", function () {
         } else {
             convertedText = "";
         }
-        if (convertedText.startsWith("Formato de entrada inválido") || convertedText.startsWith("A entrada deve ser") || convertedText.startsWith("Nenhum ponto válido")) {
+        if (convertedText.startsWith("Formato de entrada inválido") || 
+            convertedText.startsWith("A entrada deve ser") || 
+            convertedText.startsWith("Nenhum ponto válido") ||
+            convertedText.startsWith("Nenhuma geometria WKT válida") ||
+            convertedText.startsWith("Erro na conversão") ||
+            convertedText.startsWith("Formato GeoJSON inválido") ||
+            convertedText.startsWith("FeatureCollection vazia")) {
             showToast(convertedText, "danger");
             outputText.value = "";
         } else {
@@ -1798,6 +1863,13 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("saveLayersBtn")?.addEventListener("click", saveLayersToLocalStorage);
     document.getElementById("exportLayersBtn")?.addEventListener("click", exportLayers);
     
+    // Clear all data button with confirmation
+    document.getElementById("clearAllDataBtn")?.addEventListener("click", function() {
+        if (confirm("Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.")) {
+            clearAllData();
+        }
+    });
+    
     const importBtn = document.getElementById("importLayersBtn");
     if (importBtn) {
         const importInput = document.createElement("input");
@@ -1814,10 +1886,16 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Load saved layers on page load
+    // Load saved layers on page load only if explicitly requested
     window.addEventListener("load", function () {
         setTimeout(() => {
-            loadLayersFromLocalStorage();
+            // Check URL parameter to load saved data
+            const urlParams = new URLSearchParams(window.location.search);
+            const loadSaved = urlParams.get('load') === 'true';
+            
+            if (loadSaved) {
+                loadLayersFromLocalStorage();
+            }
             loadUISettings();
         }, 500);
     });
