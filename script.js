@@ -310,6 +310,40 @@ function toggleLayerVisibility(idx) {
     updateLayerList();
 }
 
+function centerMapOnLayer(idx) {
+    const layer = userLayers[idx];
+    if (!layer || !layer.layer) return;
+    
+    // Add visual feedback on the layer name
+    const nameElement = document.querySelector(`.layer-name[data-idx="${idx}"]`);
+    if (nameElement) {
+        nameElement.style.backgroundColor = '#e3f2fd';
+        setTimeout(() => {
+            nameElement.style.backgroundColor = '';
+        }, 500);
+    }
+    
+    try {
+        if (layer.layer.getBounds) {
+            // For layers with bounds (polygons, lines, etc.)
+            map.fitBounds(layer.layer.getBounds(), { padding: [20, 20] });
+        } else if (layer.layer.getLatLng) {
+            // For point layers
+            map.setView(layer.layer.getLatLng(), 15);
+        } else if (layer.layer.getLayers) {
+            // For layer groups
+            const bounds = layer.layer.getBounds();
+            map.fitBounds(bounds, { padding: [20, 20] });
+        }
+        
+        // Show toast to indicate the action
+        showToast(`📍 Centralizando em "${layer.name}"`, "info");
+    } catch (error) {
+        console.error("Erro ao centralizar na camada:", error);
+        showToast("Erro ao centralizar na camada", "danger");
+    }
+}
+
 function openEditModal(idx) {
     if (!addLayerModal) {
         console.error("Modal não foi inicializado");
@@ -436,12 +470,28 @@ function addClickEventsToLayer(layer, layerName, layerIndex) {
 }
 
 function showLayerPopup(e, layerName, layerIndex) {
+    const lat = e.latlng.lat.toFixed(6);
+    const lng = e.latlng.lng.toFixed(6);
+    
     const popup = L.popup()
         .setLatLng(e.latlng)
         .setContent(`
-            <div style="text-align: center; padding: 5px;">
-                <strong>${layerName}</strong><br>
-                <small>Camada ${layerIndex + 1}</small>
+            <div style="text-align: center; padding: 8px; min-width: 200px;">
+                <strong style="color: #007bff;">${layerName}</strong><br>
+                <small style="color: #6c757d;">Camada ${layerIndex + 1}</small>
+                <hr style="margin: 8px 0;">
+                <div style="font-size: 12px; color: #495057;">
+                    <strong>Coordenadas:</strong><br>
+                    <span style="font-family: monospace;">
+                        Lat: ${lat}<br>
+                        Lng: ${lng}
+                    </span>
+                </div>
+                <button onclick="navigator.clipboard.writeText('${lat}, ${lng}'); showToast('Coordenadas copiadas!', 'success');" 
+                        style="margin-top: 8px; padding: 4px 8px; font-size: 11px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;"
+                        title="Copiar coordenadas">
+                    📋 Copiar
+                </button>
             </div>
         `)
         .openOn(map);
@@ -508,6 +558,13 @@ function updateLayerList() {
         btn.addEventListener("click", (e) => {
             e.preventDefault();
             toggleLayerVisibility(Number(btn.dataset.idx));
+        });
+    });
+
+    document.querySelectorAll(".layer-name").forEach((nameEl) => {
+        nameEl.addEventListener("click", (e) => {
+            e.preventDefault();
+            centerMapOnLayer(Number(nameEl.dataset.idx));
         });
     });
 

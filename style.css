@@ -164,12 +164,15 @@ body {
 
 .layer-name {
     color: #007bff;
-    transition: color 0.2s;
+    transition: color 0.2s, background-color 0.3s;
+    padding: 2px 4px;
+    border-radius: 3px;
 }
 
 .layer-name:hover {
     color: #0056b3;
     text-decoration: underline;
+    background-color: #f8f9fa;
 }
 
 /* Settings Dropdown */
