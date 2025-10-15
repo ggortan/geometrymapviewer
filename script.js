@@ -1789,6 +1789,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const addLayerBtn = document.getElementById("addLayerBtn");
     const addLayerManualBtn = document.getElementById("addLayerManualBtn");
 
+    // Verificar se os elementos principais existem
+    if (!inputText || !outputText || !convertBtn || !clearBtn || !copyBtn || !conversionType) {
+        console.error("Elementos principais da interface não encontrados!");
+        return;
+    }
+
     // Create modal HTML
     const addLayerModalHTML = `
 <div class="modal fade" id="addLayerModal" tabindex="-1" aria-labelledby="addLayerModalLabel" aria-hidden="true">
@@ -1872,12 +1878,13 @@ document.addEventListener("DOMContentLoaded", function () {
         if (fileInput.files.length > 0) handleShapefileUpload(fileInput.files);
     });
 
-    convertBtn.addEventListener("click", function () {
-        const input = inputText.value.trim();
-        if (!input) {
-            showToast("Por favor, insira o texto para conversão.", "warning");
-            return;
-        }
+    if (convertBtn) {
+        convertBtn.addEventListener("click", function () {
+            const input = inputText.value.trim();
+            if (!input) {
+                showToast("Por favor, insira o texto para conversão.", "warning");
+                return;
+            }
         let convertedText;
         if (conversionType.value === "polygonsToMultipolygon") {
             convertedText = convertPolygonsToMultipolygon(input);
@@ -1913,17 +1920,19 @@ document.addEventListener("DOMContentLoaded", function () {
             showToast("Conversão realizada com sucesso!", "success");
             plotWKTOnMap(convertedText);
         }
-    });
+        });
+    }
 
-    clearBtn.addEventListener("click", function () {
-        inputText.value = "";
-        outputText.value = "";
-        if (map && layerGroup) layerGroup.clearLayers();
-    });
+    if (clearBtn) {
+        clearBtn.addEventListener("click", function () {
+            inputText.value = "";
+            outputText.value = "";
+            if (map && layerGroup) layerGroup.clearLayers();
+        });
+    }
 
-
-
-    copyBtn.addEventListener("click", function () {
+    if (copyBtn) {
+        copyBtn.addEventListener("click", function () {
         if (!outputText.value) {
             showToast("Não há resultado para copiar.", "warning");
             return;
@@ -1940,9 +1949,11 @@ document.addEventListener("DOMContentLoaded", function () {
                     console.error("Erro ao copiar: ", err);
                 });
         }
-    });
+        });
+    }
 
-    addLayerBtn.onclick = function () {
+    if (addLayerBtn) {
+        addLayerBtn.onclick = function () {
         const wkt = outputText.value.trim();
         if (!wkt) {
             showToast("Não há resultado para adicionar como camada.", "warning");
@@ -1955,9 +1966,11 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("editLayerWKT").value = wkt;
         document.getElementById("submitLayerBtn").textContent = "Adicionar Camada";
         addLayerModal.show();
-    };
+        };
+    }
 
-    addLayerManualBtn.addEventListener("click", function () {
+    if (addLayerManualBtn) {
+        addLayerManualBtn.addEventListener("click", function () {
         isAddingManualLayer = true;
         editingLayerIdx = null;
         document.getElementById("addLayerModalLabel").textContent = "Adicionar Camada Manualmente";
@@ -1965,7 +1978,8 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("editLayerWKT").value = "";
         document.getElementById("submitLayerBtn").textContent = "Adicionar Camada";
         addLayerModal.show();
-    });
+        });
+    }
 
     // Help modal functionality
     const helpBtn = document.getElementById("helpBtn");
@@ -1976,38 +1990,57 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // Example buttons
-    document.getElementById("addExampleLayers").addEventListener("click", function () {
-        addAllExampleLayers();
-    });
+    const addExampleLayersBtn = document.getElementById("addExampleLayers");
+    if (addExampleLayersBtn) {
+        addExampleLayersBtn.addEventListener("click", function () {
+            addAllExampleLayers();
+        });
+    }
 
     // Conversion examples
-    document.getElementById("examplePolygonToMulti").addEventListener("click", function () {
-        loadExamplePolygonToMulti();
-    });
+    const examplePolygonToMultiBtn = document.getElementById("examplePolygonToMulti");
+    if (examplePolygonToMultiBtn) {
+        examplePolygonToMultiBtn.addEventListener("click", function () {
+            loadExamplePolygonToMulti();
+        });
+    }
 
-    document.getElementById("exampleMultiToPolygon").addEventListener("click", function () {
-        loadExampleMultiToPolygon();
-    });
+    const exampleMultiToPolygonBtn = document.getElementById("exampleMultiToPolygon");
+    if (exampleMultiToPolygonBtn) {
+        exampleMultiToPolygonBtn.addEventListener("click", function () {
+            loadExampleMultiToPolygon();
+        });
+    }
 
-    document.getElementById("exampleWktToGeojson").addEventListener("click", function () {
-        loadExampleWktToGeojson();
-    });
+    const exampleWktToGeojsonBtn = document.getElementById("exampleWktToGeojson");
+    if (exampleWktToGeojsonBtn) {
+        exampleWktToGeojsonBtn.addEventListener("click", function () {
+            loadExampleWktToGeojson();
+        });
+    }
 
-    document.getElementById("exampleGeojsonToWkt").addEventListener("click", function () {
-        loadExampleGeojsonToWkt();
-    });
+    const exampleGeojsonToWktBtn = document.getElementById("exampleGeojsonToWkt");
+    if (exampleGeojsonToWktBtn) {
+        exampleGeojsonToWktBtn.addEventListener("click", function () {
+            loadExampleGeojsonToWkt();
+        });
+    }
 
     // Sidebar toggle functionality
     const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
     const sidebarFloatingToggle = document.getElementById("sidebarFloatingToggle");
 
-    sidebarToggleBtn.addEventListener("click", function () {
-        toggleSidebar();
-    });
+    if (sidebarToggleBtn) {
+        sidebarToggleBtn.addEventListener("click", function () {
+            toggleSidebar();
+        });
+    }
 
-    sidebarFloatingToggle.addEventListener("click", function () {
-        toggleSidebar();
-    });
+    if (sidebarFloatingToggle) {
+        sidebarFloatingToggle.addEventListener("click", function () {
+            toggleSidebar();
+        });
+    }
 
     // Event listener para editar removido - agora é tratado em updateLayerList()
 
