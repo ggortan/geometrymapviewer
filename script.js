@@ -316,6 +316,9 @@ function toggleLayerVisibility(idx) {
     }
     
     updateLayerList();
+    
+    // Auto-save after visibility change
+    setTimeout(() => saveLayersToLocalStorage(), 100);
 }
 
 function centerMapOnLayer(idx) {
@@ -977,9 +980,61 @@ function saveLayersToLocalStorage() {
         wkt: layer.wkt,
         color: layer.color,
         opacity: layer.opacity,
+        visible: layer.visible !== false
     }));
     localStorage.setItem("savedLayers", JSON.stringify(layersData));
     showToast("Camadas salvas com sucesso!", "success");
+}
+
+function saveUISettings() {
+    try {
+        const settings = {
+            sidebarWidth: document.querySelector('.sidebar')?.offsetWidth || 350,
+            converterHeight: document.querySelector('#converterPanel')?.offsetHeight || window.innerHeight * 0.5,
+            converterVisible: document.querySelector('#converterPanel')?.classList.contains('show') || false
+        };
+        
+        localStorage.setItem("uiSettings", JSON.stringify(settings));
+        return true;
+    } catch (error) {
+        console.error("Erro ao salvar configurações da UI:", error);
+        return false;
+    }
+}
+
+function loadUISettings() {
+    try {
+        const savedSettings = localStorage.getItem("uiSettings");
+        if (!savedSettings) return false;
+
+        const settings = JSON.parse(savedSettings);
+        
+        // Apply sidebar width
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar && settings.sidebarWidth) {
+            sidebar.style.width = settings.sidebarWidth + 'px';
+        }
+        
+        // Apply converter panel height
+        const converterPanel = document.querySelector('#converterPanel');
+        if (converterPanel && settings.converterHeight) {
+            converterPanel.style.height = settings.converterHeight + 'px';
+        }
+        
+        // Apply converter visibility
+        if (settings.converterVisible) {
+            converterPanel?.classList.add('show');
+            const toggleBtn = document.getElementById('converterToggleBtn');
+            if (toggleBtn) {
+                toggleBtn.querySelector('i')?.classList.replace('fa-chevron-up', 'fa-chevron-down');
+            }
+        }
+        
+        return true;
+    } catch (error) {
+        console.error("Erro ao carregar configurações da UI:", error);
+        return false;
+    }
 }
 
 function loadLayersFromLocalStorage() {
@@ -996,7 +1051,13 @@ function loadLayersFromLocalStorage() {
         }
 
         layersData.forEach((layerData) => {
-            addLayerToMap(layerData.wkt, layerData.name, layerData.color, layerData.opacity);
+            // Add layer with all saved properties
+            const success = addLayerToMap(layerData.wkt, layerData.name, layerData.color, layerData.opacity);
+            if (success && layerData.visible === false) {
+                // Hide layer if it was hidden
+                const lastLayerIndex = userLayers.length - 1;
+                toggleLayerVisibility(lastLayerIndex);
+            }
         });
 
         showToast("Camadas carregadas com sucesso!", "info");
@@ -1111,6 +1172,8 @@ document.addEventListener("DOMContentLoaded", function () {
             if (isSidebarResizing) {
                 isSidebarResizing = false;
                 document.body.style.cursor = '';
+                // Save UI settings after resize
+                saveUISettings();
             }
         });
     }
@@ -1391,6 +1454,8 @@ document.addEventListener("DOMContentLoaded", function () {
             converterPanel.classList.toggle("show");
             converterToggle.querySelector("i").classList.toggle("fa-chevron-up");
             converterToggle.querySelector("i").classList.toggle("fa-chevron-down");
+            // Save UI settings after toggle
+            setTimeout(() => saveUISettings(), 100);
         });
     }
 
@@ -1420,6 +1485,8 @@ document.addEventListener("DOMContentLoaded", function () {
             if (isResizing) {
                 isResizing = false;
                 document.body.style.cursor = "";
+                // Save UI settings after resize
+                saveUISettings();
             }
         });
     }
@@ -1446,7 +1513,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Load saved layers on page load
     window.addEventListener("load", function () {
-        setTimeout(() => loadLayersFromLocalStorage(), 500);
+        setTimeout(() => {
+            loadLayersFromLocalStorage();
+            loadUISettings();
+        }, 500);
     });
 
     // Auto-save events
