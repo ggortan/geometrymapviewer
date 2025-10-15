@@ -5,6 +5,26 @@ let addLayerModal;
 let editingLayerIdx = null;
 let isAddingManualLayer = false;
 
+// Initialize map on page load
+function initializeMap() {
+    if (!map) {
+        map = L.map("map", {
+            fullscreenControl: true,
+        }).setView([0, 0], 2);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {}).addTo(map);
+        layerGroup = L.layerGroup().addTo(map);
+        baseLayerGroup = L.layerGroup().addTo(map);
+        
+        // Add a test layer to verify functionality
+        setTimeout(() => {
+            if (userLayers.length === 0) {
+                const testWKT = "POLYGON((-50 -20, -40 -20, -40 -10, -50 -10, -50 -20))";
+                addLayerToMap(testWKT, "Camada de Teste", "#ff6b6b", 0.5);
+            }
+        }, 500);
+    }
+}
+
 // Função para ler um arquivo como ArrayBuffer (escopo global)
 function readFileAsArrayBuffer(file) {
     return new Promise((resolveFile, rejectFile) => {
@@ -140,7 +160,9 @@ function addLayerToMap(wkt, name = null, color = null, opacity = 0.4) {
 
                 if (success) {
                     featureGroup.addTo(baseLayerGroup);
+                    const layerIndex = userLayers.length;
                     userLayers.push({ layer: featureGroup, wkt, color, opacity, name });
+                    addClickEventsToLayer(featureGroup, name, layerIndex);
                     updateLayerList();
                     map.fitBounds(featureGroup.getBounds(), { padding: [20, 20] });
                     return true;
@@ -165,7 +187,9 @@ function addLayerToMap(wkt, name = null, color = null, opacity = 0.4) {
                 leafletLayer = obj;
             }
             leafletLayer.addTo(baseLayerGroup);
+            const layerIndex = userLayers.length;
             userLayers.push({ layer: leafletLayer, wkt, color, opacity, name });
+            addClickEventsToLayer(leafletLayer, name, layerIndex);
             updateLayerList();
             map.fitBounds(leafletLayer.getBounds(), { padding: [20, 20] });
             return true;
@@ -224,14 +248,7 @@ function removeLayer(idx) {
     updateLayerList();
 }
 
-function moveLayer(idx, direction) {
-    const newIdx = idx + direction;
-    if (newIdx < 0 || newIdx >= userLayers.length) return;
-    [userLayers[idx], userLayers[newIdx]] = [userLayers[newIdx], userLayers[idx]];
-    baseLayerGroup.clearLayers();
-    [...userLayers].reverse().forEach((l) => baseLayerGroup.addLayer(l.layer));
-    updateLayerList();
-}
+// moveLayer function removed - now using drag and drop
 
 function updateLayerColor(idx, color) {
     userLayers[idx].color = color;
@@ -280,104 +297,179 @@ function updateLayerOpacity(idx, opacity) {
     }
 }
 
+function openEditModal(idx) {
+    if (!addLayerModal) {
+        console.error("Modal não foi inicializado");
+        return;
+    }
+    
+    isAddingManualLayer = false;
+    editingLayerIdx = idx;
+    
+    const modalLabel = document.getElementById("addLayerModalLabel");
+    const nameInput = document.getElementById("editLayerName");
+    const wktInput = document.getElementById("editLayerWKT");
+    
+    if (modalLabel) modalLabel.textContent = "Editar Camada";
+    if (nameInput) nameInput.value = userLayers[idx].name;
+    if (wktInput) wktInput.value = userLayers[idx].wkt;
+    
+    addLayerModal.show();
+}
+
+function setupDragAndDrop() {
+    const layerItems = document.querySelectorAll('.draggable-layer');
+    
+    layerItems.forEach(item => {
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragover', handleDragOver);
+        item.addEventListener('dragenter', handleDragEnter);
+        item.addEventListener('dragleave', handleDragLeave);
+        item.addEventListener('drop', handleDrop);
+        item.addEventListener('dragend', handleDragEnd);
+    });
+}
+
+let draggedElement = null;
+
+function handleDragStart(e) {
+    draggedElement = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.outerHTML);
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+}
+
+function handleDragEnter(e) {
+    if (this !== draggedElement) {
+        this.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(e) {
+    this.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    if (e.stopPropagation) {
+        e.stopPropagation();
+    }
+    
+    if (draggedElement !== this) {
+        const draggedIdx = parseInt(draggedElement.dataset.idx);
+        const targetIdx = parseInt(this.dataset.idx);
+        
+        // Reorder layers array
+        const draggedLayer = userLayers[draggedIdx];
+        userLayers.splice(draggedIdx, 1);
+        userLayers.splice(targetIdx, 0, draggedLayer);
+        
+        // Update map layers order
+        baseLayerGroup.clearLayers();
+        [...userLayers].reverse().forEach((l) => baseLayerGroup.addLayer(l.layer));
+        
+        // Update the list
+        updateLayerList();
+    }
+    
+    return false;
+}
+
+function handleDragEnd(e) {
+    const items = document.querySelectorAll('.draggable-layer');
+    items.forEach(item => {
+        item.classList.remove('dragging', 'drag-over');
+    });
+    draggedElement = null;
+}
+
+function addClickEventsToLayer(layer, layerName, layerIndex) {
+    if (layer.eachLayer) {
+        layer.eachLayer((subLayer) => {
+            addClickEventsToLayer(subLayer, layerName, layerIndex);
+        });
+    } else {
+        layer.on('click', function(e) {
+            showLayerPopup(e, layerName, layerIndex);
+        });
+    }
+}
+
+function showLayerPopup(e, layerName, layerIndex) {
+    const popup = L.popup()
+        .setLatLng(e.latlng)
+        .setContent(`
+            <div style="text-align: center; padding: 5px;">
+                <strong>${layerName}</strong><br>
+                <small>Camada ${layerIndex + 1}</small>
+            </div>
+        `)
+        .openOn(map);
+}
+
 function updateLayerList() {
     const list = document.getElementById("layer-list");
     list.innerHTML = "";
-
+    
     userLayers.forEach((l, idx) => {
         const li = document.createElement("li");
-        li.className = "list-group-item d-flex align-items-center justify-content-between";
-
-        // Cria o span da esquerda (cor, opacidade, nome)
-        const leftSpan = document.createElement("span");
-        const colorInput = document.createElement("input");
-        colorInput.type = "color";
-        colorInput.value = rgb2hex(l.color);
-        colorInput.style = "width: 32px; height: 32px; border: none; vertical-align: middle;";
-        colorInput.dataset.idx = idx;
-        colorInput.className = "layer-color-picker";
-        colorInput.title = "Cor da camada";
-        leftSpan.appendChild(colorInput);
-
-        const opacityInput = document.createElement("input");
-        opacityInput.type = "range";
-        opacityInput.min = "0";
-        opacityInput.max = "1";
-        opacityInput.step = "0.05";
-        opacityInput.value = l.opacity;
-        opacityInput.dataset.idx = idx;
-        opacityInput.className = "layer-opacity-slider";
-        opacityInput.style = "width:80px; vertical-align: middle;";
-        opacityInput.title = "Transparência";
-        leftSpan.appendChild(opacityInput);
-
-        const nameStrong = document.createElement("strong");
-        nameStrong.style.marginLeft = "8px";
-        nameStrong.textContent = l.name;
-        leftSpan.appendChild(nameStrong);
-
-        // Cria o span da direita (botões)
-        const rightSpan = document.createElement("span");
-        const btnUp = document.createElement("button");
-        btnUp.className = "btn btn-sm btn-light move-up";
-        btnUp.dataset.idx = idx;
-        btnUp.title = "Subir camada";
-        btnUp.innerHTML = '<i class="fas fa-arrow-up"></i>';
-        rightSpan.appendChild(btnUp);
-
-        const btnDown = document.createElement("button");
-        btnDown.className = "btn btn-sm btn-light move-down";
-        btnDown.dataset.idx = idx;
-        btnDown.title = "Descer camada";
-        btnDown.innerHTML = '<i class="fas fa-arrow-down"></i>';
-        rightSpan.appendChild(btnDown);
-
-        const btnEdit = document.createElement("button");
-        btnEdit.className = "btn btn-sm btn-warning edit-layer";
-        btnEdit.dataset.idx = idx;
-        btnEdit.title = "Editar camada";
-        btnEdit.innerHTML = '<i class="fas fa-edit"></i>';
-        rightSpan.appendChild(btnEdit);
-
-        const btnRemove = document.createElement("button");
-        btnRemove.className = "btn btn-sm btn-danger remove-layer";
-        btnRemove.dataset.idx = idx;
-        btnRemove.title = "Remover camada";
-        btnRemove.innerHTML = '<i class="fas fa-trash"></i>';
-        rightSpan.appendChild(btnRemove);
-
-        li.appendChild(leftSpan);
-        li.appendChild(rightSpan);
+        li.className = "list-group-item d-flex align-items-center justify-content-between draggable-layer";
+        li.draggable = true;
+        li.dataset.idx = idx;
+        li.innerHTML = `
+            <span class="drag-handle" title="Arraste para reordenar">
+                <i class="fas fa-grip-vertical"></i>
+            </span>
+            <span class="layer-controls">
+                <input type="color" value="${rgb2hex(l.color)}" style="width: 32px; height: 32px; border: none; vertical-align: middle;" data-idx="${idx}" class="layer-color-picker" title="Cor da camada">
+                <input type="range" min="0" max="1" step="0.05" value="${l.opacity}" data-idx="${idx}" class="layer-opacity-slider" style="width:80px; vertical-align: middle;" title="Transparência">
+                <strong style="margin-left:8px;">${l.name}</strong>
+            </span>
+            <span class="layer-buttons">
+                <button class="btn btn-sm btn-warning edit-layer" data-idx="${idx}" title="Editar camada"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-sm btn-danger remove-layer" data-idx="${idx}" title="Remover camada"><i class="fas fa-trash"></i></button>
+            </span>
+        `;
         list.appendChild(li);
     });
 
-    // Delegação de eventos para os botões e inputs
-    list.querySelectorAll(".remove-layer").forEach((btn) => {
-        btn.onclick = (e) => removeLayer(Number(btn.dataset.idx));
+    // Anexar eventos após criar os elementos
+    document.querySelectorAll(".remove-layer").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            removeLayer(Number(btn.dataset.idx));
+        });
     });
-    list.querySelectorAll(".move-up").forEach((btn) => {
-        btn.onclick = (e) => moveLayer(Number(btn.dataset.idx), -1);
-    });
-    list.querySelectorAll(".move-down").forEach((btn) => {
-        btn.onclick = (e) => moveLayer(Number(btn.dataset.idx), 1);
-    });
-    list.querySelectorAll(".edit-layer").forEach((btn) => {
-        btn.onclick = (e) => {
-            isAddingManualLayer = false;
+    
+    document.querySelectorAll(".edit-layer").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
             const idx = Number(btn.dataset.idx);
-            editingLayerIdx = idx;
-            document.getElementById("addLayerModalLabel").textContent = "Editar Camada";
-            document.getElementById("editLayerName").value = userLayers[idx].name;
-            document.getElementById("editLayerWKT").value = userLayers[idx].wkt;
-            addLayerModal.show();
-        };
+            openEditModal(idx);
+        });
     });
-    list.querySelectorAll(".layer-color-picker").forEach((input) => {
-        input.oninput = (e) => updateLayerColor(Number(input.dataset.idx), input.value);
+    
+    document.querySelectorAll(".layer-color-picker").forEach((input) => {
+        input.addEventListener("input", (e) => {
+            updateLayerColor(Number(input.dataset.idx), input.value);
+        });
     });
-    list.querySelectorAll(".layer-opacity-slider").forEach((input) => {
-        input.oninput = (e) => updateLayerOpacity(Number(input.dataset.idx), Number(input.value));
+    
+    document.querySelectorAll(".layer-opacity-slider").forEach((input) => {
+        input.addEventListener("input", (e) => {
+            updateLayerOpacity(Number(input.dataset.idx), Number(input.value));
+        });
     });
+
+    // Drag and Drop functionality
+    setupDragAndDrop();
 }
 
 function rgb2hex(color) {
@@ -907,8 +999,7 @@ document.addEventListener("DOMContentLoaded", function () {
         document.addEventListener('mousemove', function(e) {
             if (!isSidebarResizing) return;
             const dx = e.clientX - startSidebarX;
-            let newWidth = startSidebarWidth + dx;
-            // Inverter o sentido: arrastar para a direita aumenta, para a esquerda diminui
+            let newWidth = startSidebarWidth - dx; // Invertido: arrastar esquerda aumenta, direita diminui
             newWidth = Math.max(220, Math.min(600, newWidth));
             sidebar.style.width = newWidth + 'px';
         });
@@ -1093,17 +1184,7 @@ document.addEventListener("DOMContentLoaded", function () {
         addLayerModal.show();
     });
 
-    document.addEventListener("click", function (e) {
-        if (e.target.closest(".edit-layer")) {
-            isAddingManualLayer = false;
-            const idx = Number(e.target.closest(".edit-layer").dataset.idx);
-            editingLayerIdx = idx;
-            document.getElementById("addLayerModalLabel").textContent = "Editar Camada";
-            document.getElementById("editLayerName").value = userLayers[idx].name;
-            document.getElementById("editLayerWKT").value = userLayers[idx].wkt;
-            addLayerModal.show();
-        }
-    });
+    // Event listener para editar removido - agora é tratado em updateLayerList()
 
     document.getElementById("editLayerForm").addEventListener("submit", function (e) {
         e.preventDefault();
@@ -1141,6 +1222,9 @@ document.addEventListener("DOMContentLoaded", function () {
             userLayers[editingLayerIdx].name = newName;
             userLayers[editingLayerIdx].wkt = newWKT;
             userLayers[editingLayerIdx].layer = leafletLayer;
+
+            // Re-add click events to the updated layer
+            addClickEventsToLayer(leafletLayer, newName, editingLayerIdx);
 
             baseLayerGroup.clearLayers();
             userLayers.forEach((l) => baseLayerGroup.addLayer(l.layer));
@@ -1254,11 +1338,7 @@ document.addEventListener("DOMContentLoaded", function () {
         document.dispatchEvent(new CustomEvent("layer-removed"));
     };
 
-    const originalMoveLayer = moveLayer;
-    window.moveLayer = function (...args) {
-        originalMoveLayer.apply(this, args);
-        document.dispatchEvent(new CustomEvent("layer-moved"));
-    };
+    // moveLayer function removed - using drag and drop instead
 
     const editLayerForm = document.getElementById("editLayerForm");
     if (editLayerForm) {
@@ -1268,4 +1348,7 @@ document.addEventListener("DOMContentLoaded", function () {
             document.dispatchEvent(new CustomEvent("layer-edited"));
         });
     }
+
+    // Initialize map after DOM is loaded
+    setTimeout(initializeMap, 100);
 });
