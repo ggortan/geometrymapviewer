@@ -15,13 +15,7 @@ function initializeMap() {
         layerGroup = L.layerGroup().addTo(map);
         baseLayerGroup = L.layerGroup().addTo(map);
         
-        // Add a test layer to verify functionality
-        setTimeout(() => {
-            if (userLayers.length === 0) {
-                const testWKT = "POLYGON((-50 -20, -40 -20, -40 -10, -50 -10, -50 -20))";
-                addLayerToMap(testWKT, "Camada de Teste", "#ff6b6b", 0.5);
-            }
-        }, 500);
+        // Test layer removed - initialize empty
     }
 }
 
@@ -36,37 +30,51 @@ function readFileAsArrayBuffer(file) {
 }
 
 function showToast(message, type = "warning") {
-    const icons = {
-        success: "fa-check-circle",
-        danger: "fa-exclamation-triangle",
-        warning: "fa-exclamation-circle",
-        info: "fa-info-circle",
-    };
-    const bg = {
-        success: "bg-success text-white",
-        danger: "bg-danger text-white",
-        warning: "bg-warning text-dark",
-        info: "bg-info text-white",
-    };
-    const toastId = "toast-" + Date.now();
-    const toastHTML = `
-<div id="\${toastId}" class="toast align-items-center \${bg[type] || bg.warning}" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
-<div class="d-flex">
-<div class="toast-body">
-<i class="fas \${icons[type] || icons.warning} me-2"></i>\${message}
-</div>
-<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
-</div>
-</div>
-`;
-    const container = document.getElementById("toast-container");
-    container.insertAdjacentHTML("beforeend", toastHTML);
-    const toastEl = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastEl);
-    toast.show();
-    toastEl.addEventListener("hidden.bs.toast", () => {
-        toastEl.remove();
-    });
+    try {
+        const icons = {
+            success: "fa-check-circle",
+            danger: "fa-exclamation-triangle",
+            warning: "fa-exclamation-circle",
+            info: "fa-info-circle",
+        };
+        const bg = {
+            success: "bg-success text-white",
+            danger: "bg-danger text-white",
+            warning: "bg-warning text-dark",
+            info: "bg-info text-white",
+        };
+        
+        const toastId = "toast-" + Date.now();
+        const selectedIcon = icons[type] || icons.warning;
+        const selectedBg = bg[type] || bg.warning;
+        
+        const toastHTML = 
+            '<div id="' + toastId + '" class="toast align-items-center ' + selectedBg + '" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">' +
+            '<div class="d-flex">' +
+            '<div class="toast-body">' +
+            '<i class="fas ' + selectedIcon + ' me-2"></i>' + message +
+            '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>' +
+            '</div>' +
+            '</div>';
+        
+        const container = document.getElementById("toast-container");
+        if (container) {
+            container.insertAdjacentHTML("beforeend", toastHTML);
+            const toastEl = document.getElementById(toastId);
+            if (toastEl && typeof bootstrap !== 'undefined') {
+                const toast = new bootstrap.Toast(toastEl);
+                toast.show();
+                toastEl.addEventListener("hidden.bs.toast", () => {
+                    toastEl.remove();
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Error showing toast:", error);
+        // Fallback to simple alert
+        alert(message);
+    }
 }
 
 function plotWKTOnMap(wktString) {
@@ -108,7 +116,7 @@ function plotWKTOnMap(wktString) {
 
 function getRandomColor() {
     const hue = Math.floor(Math.random() * 360);
-    return `hsl(\${hue}, 70%, 60%)`;
+    return `hsl(${hue}, 70%, 60%)`;
 }
 
 function addLayerToMap(wkt, name = null, color = null, opacity = 0.4) {
@@ -122,7 +130,7 @@ function addLayerToMap(wkt, name = null, color = null, opacity = 0.4) {
         baseLayerGroup = L.layerGroup().addTo(map);
     }
     color = color || getRandomColor();
-    name = name || `Camada \${userLayers.length + 1}`;
+    name = name || `Camada ${userLayers.length + 1}`;
     wkt = wkt.trim();
     if (wkt.startsWith("SELECT ST_GeomFromText")) {
         wkt = wkt.replace(/^SELECT ST_GeomFromText\('(.+)'\)$/i, "$1");
@@ -647,13 +655,13 @@ function processShapefile(files) {
 
             const fileSizeMB = shpFile.size / (1024 * 1024);
             if (fileSizeMB > 50) {
-                showToast(`Arquivo grande (\${fileSizeMB.toFixed(1)} MB). O processamento pode levar mais tempo.`, "warning");
+                showToast(`Arquivo grande (${fileSizeMB.toFixed(1)} MB). O processamento pode levar mais tempo.`, "warning");
             }
 
             function updateProgress(percent) {
                 const progressBar = document.getElementById("shapefileProgressBar");
                 if (progressBar) {
-                    progressBar.style.width = `\${percent}%`;
+                    progressBar.style.width = `${percent}%`;
                     progressBar.setAttribute("aria-valuenow", percent);
                 }
             }
@@ -808,14 +816,14 @@ function handleShapefileUpload(files) {
             try {
                 const wicket = new Wkt.Wkt();
                 wicket.read(wktData.wkt);
-                const layerName = wktData.name || `Camada \${userLayers.length + 1}`;
+                const layerName = wktData.name || `Camada ${userLayers.length + 1}`;
                 const randomColor = getRandomColor();
                 const success = addLayerToMap(wktData.wkt, layerName, randomColor);
 
                 if (success) {
                     addLayerModal.hide();
                     if (wktData.wkt.startsWith("GEOMETRYCOLLECTION")) {
-                        showToast(`Shapefile adicionado como camada "\${layerName}" com \${wktData.count} geometrias combinadas.`, "success");
+                        showToast(`Shapefile adicionado como camada "${layerName}" com ${wktData.count} geometrias combinadas.`, "success");
                     } else {
                         showToast(`Shapefile adicionado como camada "\${layerName}" com \${wktData.count} feições.`, "success");
                     }
@@ -1266,7 +1274,7 @@ document.addEventListener("DOMContentLoaded", function () {
         isAddingManualLayer = true;
         editingLayerIdx = null;
         document.getElementById("addLayerModalLabel").textContent = "Adicionar Camada Convertida";
-        document.getElementById("editLayerName").value = `Camada \${userLayers.length + 1}`;
+        document.getElementById("editLayerName").value = `Camada ${userLayers.length + 1}`;
         document.getElementById("editLayerWKT").value = wkt;
         document.getElementById("submitLayerBtn").textContent = "Adicionar Camada";
         addLayerModal.show();
@@ -1286,11 +1294,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("editLayerForm").addEventListener("submit", function (e) {
         e.preventDefault();
+        console.log("Form submitted"); // Debug log
         const newName = document.getElementById("editLayerName").value.trim();
         const newWKT = document.getElementById("editLayerWKT").value.trim();
-        if (!newName || !newWKT) return;
+        if (!newName || !newWKT) {
+            console.log("Missing name or WKT"); // Debug log
+            return;
+        }
 
         if (isAddingManualLayer) {
+            console.log("Adding new layer"); // Debug log
             addLayerToMap(newWKT, newName);
             showToast("Camada adicionada com sucesso!", "success");
             addLayerModal.hide();
@@ -1298,6 +1311,7 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
+        console.log("Editing layer at index:", editingLayerIdx); // Debug log
         baseLayerGroup.removeLayer(userLayers[editingLayerIdx].layer);
         try {
             const wicket = new Wkt.Wkt();
@@ -1332,21 +1346,21 @@ document.addEventListener("DOMContentLoaded", function () {
             });
             updateLayerList();
             showToast("Camada editada com sucesso!", "success");
+            console.log("Attempting to hide modal"); // Debug log
             
-            // Force modal to close
-            if (addLayerModal) {
+            // Try multiple ways to close the modal
+            if (addLayerModal && typeof addLayerModal.hide === 'function') {
                 addLayerModal.hide();
-                // Double check modal is closed
-                setTimeout(() => {
-                    const modalElement = document.getElementById("addLayerModal");
-                    if (modalElement && modalElement.classList.contains('show')) {
-                        modalElement.classList.remove('show');
-                        modalElement.style.display = 'none';
-                        document.body.classList.remove('modal-open');
-                        const backdrop = document.querySelector('.modal-backdrop');
-                        if (backdrop) backdrop.remove();
+            } else {
+                console.error("Modal hide method not available"); // Debug log
+                // Fallback method
+                const modalElement = document.getElementById("addLayerModal");
+                if (modalElement) {
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) {
+                        modal.hide();
                     }
-                }, 100);
+                }
             }
         } catch (err) {
             showToast("Erro ao atualizar camada. Verifique o WKT.", "danger");
