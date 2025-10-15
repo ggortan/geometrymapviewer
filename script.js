@@ -283,38 +283,99 @@ function updateLayerOpacity(idx, opacity) {
 function updateLayerList() {
     const list = document.getElementById("layer-list");
     list.innerHTML = "";
+
     userLayers.forEach((l, idx) => {
         const li = document.createElement("li");
         li.className = "list-group-item d-flex align-items-center justify-content-between";
-        li.innerHTML = `
-<span>
-<input type="color" value="\${rgb2hex(l.color)}" style="width: 32px; height: 32px; border: none; vertical-align: middle;" data-idx="\${idx}" class="layer-color-picker" title="Cor da camada">
-<input type="range" min="0" max="1" step="0.05" value="\${l.opacity}" data-idx="\${idx}" class="layer-opacity-slider" style="width:80px; vertical-align: middle;" title="Transparência">
-<strong style="margin-left:8px;">\${l.name}</strong>
-</span>
-<span>
-<button class="btn btn-sm btn-light move-up" data-idx="\${idx}" title="Subir camada"><i class="fas fa-arrow-up"></i></button>
-<button class="btn btn-sm btn-light move-down" data-idx="\${idx}" title="Descer camada"><i class="fas fa-arrow-down"></i></button>
-<button class="btn btn-sm btn-warning edit-layer" data-idx="\${idx}" title="Editar camada"><i class="fas fa-edit"></i></button>
-<button class="btn btn-sm btn-danger remove-layer" data-idx="\${idx}" title="Remover camada"><i class="fas fa-trash"></i></button>
-</span>
-`;
+
+        // Cria o span da esquerda (cor, opacidade, nome)
+        const leftSpan = document.createElement("span");
+        const colorInput = document.createElement("input");
+        colorInput.type = "color";
+        colorInput.value = rgb2hex(l.color);
+        colorInput.style = "width: 32px; height: 32px; border: none; vertical-align: middle;";
+        colorInput.dataset.idx = idx;
+        colorInput.className = "layer-color-picker";
+        colorInput.title = "Cor da camada";
+        leftSpan.appendChild(colorInput);
+
+        const opacityInput = document.createElement("input");
+        opacityInput.type = "range";
+        opacityInput.min = "0";
+        opacityInput.max = "1";
+        opacityInput.step = "0.05";
+        opacityInput.value = l.opacity;
+        opacityInput.dataset.idx = idx;
+        opacityInput.className = "layer-opacity-slider";
+        opacityInput.style = "width:80px; vertical-align: middle;";
+        opacityInput.title = "Transparência";
+        leftSpan.appendChild(opacityInput);
+
+        const nameStrong = document.createElement("strong");
+        nameStrong.style.marginLeft = "8px";
+        nameStrong.textContent = l.name;
+        leftSpan.appendChild(nameStrong);
+
+        // Cria o span da direita (botões)
+        const rightSpan = document.createElement("span");
+        const btnUp = document.createElement("button");
+        btnUp.className = "btn btn-sm btn-light move-up";
+        btnUp.dataset.idx = idx;
+        btnUp.title = "Subir camada";
+        btnUp.innerHTML = '<i class="fas fa-arrow-up"></i>';
+        rightSpan.appendChild(btnUp);
+
+        const btnDown = document.createElement("button");
+        btnDown.className = "btn btn-sm btn-light move-down";
+        btnDown.dataset.idx = idx;
+        btnDown.title = "Descer camada";
+        btnDown.innerHTML = '<i class="fas fa-arrow-down"></i>';
+        rightSpan.appendChild(btnDown);
+
+        const btnEdit = document.createElement("button");
+        btnEdit.className = "btn btn-sm btn-warning edit-layer";
+        btnEdit.dataset.idx = idx;
+        btnEdit.title = "Editar camada";
+        btnEdit.innerHTML = '<i class="fas fa-edit"></i>';
+        rightSpan.appendChild(btnEdit);
+
+        const btnRemove = document.createElement("button");
+        btnRemove.className = "btn btn-sm btn-danger remove-layer";
+        btnRemove.dataset.idx = idx;
+        btnRemove.title = "Remover camada";
+        btnRemove.innerHTML = '<i class="fas fa-trash"></i>';
+        rightSpan.appendChild(btnRemove);
+
+        li.appendChild(leftSpan);
+        li.appendChild(rightSpan);
         list.appendChild(li);
     });
 
-    document.querySelectorAll(".remove-layer").forEach((btn) => {
+    // Delegação de eventos para os botões e inputs
+    list.querySelectorAll(".remove-layer").forEach((btn) => {
         btn.onclick = (e) => removeLayer(Number(btn.dataset.idx));
     });
-    document.querySelectorAll(".move-up").forEach((btn) => {
+    list.querySelectorAll(".move-up").forEach((btn) => {
         btn.onclick = (e) => moveLayer(Number(btn.dataset.idx), -1);
     });
-    document.querySelectorAll(".move-down").forEach((btn) => {
+    list.querySelectorAll(".move-down").forEach((btn) => {
         btn.onclick = (e) => moveLayer(Number(btn.dataset.idx), 1);
     });
-    document.querySelectorAll(".layer-color-picker").forEach((input) => {
+    list.querySelectorAll(".edit-layer").forEach((btn) => {
+        btn.onclick = (e) => {
+            isAddingManualLayer = false;
+            const idx = Number(btn.dataset.idx);
+            editingLayerIdx = idx;
+            document.getElementById("addLayerModalLabel").textContent = "Editar Camada";
+            document.getElementById("editLayerName").value = userLayers[idx].name;
+            document.getElementById("editLayerWKT").value = userLayers[idx].wkt;
+            addLayerModal.show();
+        };
+    });
+    list.querySelectorAll(".layer-color-picker").forEach((input) => {
         input.oninput = (e) => updateLayerColor(Number(input.dataset.idx), input.value);
     });
-    document.querySelectorAll(".layer-opacity-slider").forEach((input) => {
+    list.querySelectorAll(".layer-opacity-slider").forEach((input) => {
         input.oninput = (e) => updateLayerOpacity(Number(input.dataset.idx), Number(input.value));
     });
 }
@@ -847,6 +908,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!isSidebarResizing) return;
             const dx = e.clientX - startSidebarX;
             let newWidth = startSidebarWidth + dx;
+            // Inverter o sentido: arrastar para a direita aumenta, para a esquerda diminui
             newWidth = Math.max(220, Math.min(600, newWidth));
             sidebar.style.width = newWidth + 'px';
         });
