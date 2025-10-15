@@ -316,9 +316,10 @@ body {
 /* Toast Container */
 #toast-container {
     position: fixed;
-    top: 1rem;
+    bottom: 1rem;
     right: 1rem;
     z-index: 1080;
+    max-width: 350px;
 }
 
 /* Form Controls */

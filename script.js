@@ -31,6 +31,25 @@ function readFileAsArrayBuffer(file) {
 
 function showToast(message, type = "warning") {
     try {
+        // Check if notifications are enabled
+        const notificationsEnabled = localStorage.getItem("notificationsEnabled");
+        if (notificationsEnabled === "false") {
+            console.log(`Toast suppressed: ${message}`);
+            return;
+        }
+        
+        // Check for duplicate messages currently visible
+        const container = document.getElementById("toast-container");
+        if (container) {
+            const existingToasts = container.querySelectorAll('.toast .toast-body');
+            for (let toast of existingToasts) {
+                if (toast.textContent.includes(message)) {
+                    console.log(`Duplicate toast prevented: ${message}`);
+                    return;
+                }
+            }
+        }
+        
         const icons = {
             success: "fa-check-circle",
             danger: "fa-exclamation-triangle",
@@ -44,7 +63,7 @@ function showToast(message, type = "warning") {
             info: "bg-info text-white",
         };
         
-        const toastId = "toast-" + Date.now();
+        const toastId = "toast-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
         const selectedIcon = icons[type] || icons.warning;
         const selectedBg = bg[type] || bg.warning;
         
@@ -58,7 +77,6 @@ function showToast(message, type = "warning") {
             '</div>' +
             '</div>';
         
-        const container = document.getElementById("toast-container");
         if (container) {
             container.insertAdjacentHTML("beforeend", toastHTML);
             const toastEl = document.getElementById(toastId);
@@ -72,8 +90,8 @@ function showToast(message, type = "warning") {
         }
     } catch (error) {
         console.error("Error showing toast:", error);
-        // Fallback to simple alert
-        alert(message);
+        // Fallback to console log when notifications disabled
+        console.log(`Notification: ${message}`);
     }
 }
 
@@ -1296,7 +1314,8 @@ function saveUISettings() {
         const settings = {
             sidebarWidth: document.querySelector('.sidebar')?.offsetWidth || 350,
             converterHeight: document.querySelector('#converterPanel')?.offsetHeight || window.innerHeight * 0.5,
-            converterVisible: document.querySelector('#converterPanel')?.classList.contains('show') || false
+            converterVisible: document.querySelector('#converterPanel')?.classList.contains('show') || false,
+            notificationsEnabled: localStorage.getItem("notificationsEnabled") !== "false"
         };
         
         localStorage.setItem("uiSettings", JSON.stringify(settings));
@@ -1333,6 +1352,12 @@ function loadUISettings() {
             if (toggleBtn) {
                 toggleBtn.querySelector('i')?.classList.replace('fa-chevron-up', 'fa-chevron-down');
             }
+        }
+        
+        // Apply notifications preference
+        if (settings.notificationsEnabled !== undefined) {
+            localStorage.setItem("notificationsEnabled", settings.notificationsEnabled.toString());
+            updateNotificationButtonText();
         }
         
         return true;
@@ -1394,6 +1419,35 @@ function clearAllData() {
     localStorage.removeItem("uiSettings");
     
     showToast("Todos os dados foram limpos!", "info");
+}
+
+function toggleNotifications() {
+    const currentState = localStorage.getItem("notificationsEnabled") !== "false";
+    const newState = !currentState;
+    
+    localStorage.setItem("notificationsEnabled", newState.toString());
+    updateNotificationButtonText();
+    saveUISettings();
+    
+    const message = newState ? "Avisos habilitados" : "Avisos desabilitados";
+    if (newState) {
+        showToast(message, "info");
+    } else {
+        console.log(message);
+    }
+}
+
+function updateNotificationButtonText() {
+    const button = document.getElementById("toggleNotificationsBtn");
+    const span = button?.querySelector("span");
+    const icon = button?.querySelector("i");
+    
+    if (button && span && icon) {
+        const enabled = localStorage.getItem("notificationsEnabled") !== "false";
+        span.textContent = enabled ? "Desabilitar Avisos" : "Habilitar Avisos";
+        icon.className = enabled ? "fas fa-bell" : "fas fa-bell-slash";
+        button.title = enabled ? "Desabilitar avisos de notificação" : "Habilitar avisos de notificação";
+    }
 }
 
 function exportLayers() {
@@ -1863,6 +1917,9 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("saveLayersBtn")?.addEventListener("click", saveLayersToLocalStorage);
     document.getElementById("exportLayersBtn")?.addEventListener("click", exportLayers);
     
+    // Toggle notifications button
+    document.getElementById("toggleNotificationsBtn")?.addEventListener("click", toggleNotifications);
+    
     // Clear all data button with confirmation
     document.getElementById("clearAllDataBtn")?.addEventListener("click", function() {
         if (confirm("Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.")) {
@@ -1933,4 +1990,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Initialize map after DOM is loaded
     setTimeout(initializeMap, 100);
+    
+    // Initialize notification button text
+    setTimeout(updateNotificationButtonText, 100);
 });
