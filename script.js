@@ -859,19 +859,19 @@ function geomToWKT(geom) {
 
     switch (geom.type.toUpperCase()) {
         case "POINT":
-            return `POINT (\${geom.coordinates.join(" ")})`;
+            return `POINT (${geom.coordinates.join(" ")})`;
         case "LINESTRING":
-            return `LINESTRING (\${geom.coordinates.map((c) => c.join(" ")).join(", ")})`;
+            return `LINESTRING (${geom.coordinates.map((c) => c.join(" ")).join(", ")})`;
         case "POLYGON":
-            return `POLYGON (\${geom.coordinates.map((ring) => "(" + ring.map((c) => c.join(" ")).join(", ") + ")").join(", ")})`;
+            return `POLYGON (${geom.coordinates.map((ring) => "(" + ring.map((c) => c.join(" ")).join(", ") + ")").join(", ")})`;
         case "MULTIPOINT":
-            return `MULTIPOINT (\${geom.coordinates.map((c) => "(" + c.join(" ") + ")").join(", ")})`;
+            return `MULTIPOINT (${geom.coordinates.map((c) => "(" + c.join(" ") + ")").join(", ")})`;
         case "MULTILINESTRING":
-            return `MULTILINESTRING (\${geom.coordinates.map((line) => "(" + line.map((c) => c.join(" ")).join(", ") + ")").join(", ")})`;
+            return `MULTILINESTRING (${geom.coordinates.map((line) => "(" + line.map((c) => c.join(" ")).join(", ") + ")").join(", ")})`;
         case "MULTIPOLYGON":
-            return `MULTIPOLYGON (\${geom.coordinates.map((poly) => "(" + poly.map((ring) => "(" + ring.map((c) => c.join(" ")).join(", ") + ")").join(", ") + ")").join(", ")})`;
+            return `MULTIPOLYGON (${geom.coordinates.map((poly) => "(" + poly.map((ring) => "(" + ring.map((c) => c.join(" ")).join(", ") + ")").join(", ") + ")").join(", ")})`;
         case "GEOMETRYCOLLECTION":
-            return `GEOMETRYCOLLECTION (\${geom.geometries.map((g) => geomToWKT(g)).filter(Boolean).join(", ")})`;
+            return `GEOMETRYCOLLECTION (${geom.geometries.map((g) => geomToWKT(g)).filter(Boolean).join(", ")})`;
         default:
             return null;
     }
@@ -996,30 +996,30 @@ function processShapefile(files) {
                         if (predominantType === "POLYGON") {
                             const polygonContents = wktStrings.map((wkt) => {
                                 const match = wkt.match(/POLYGON\s*\(\((.*?)\)\)/is);
-                                return match ? `((\${match[1]}))` : null;
+                                return match ? `((${match[1]}))` : null;
                             }).filter(Boolean);
                             if (polygonContents.length > 0) {
-                                finalWkt = `MULTIPOLYGON (\${polygonContents.join(", ")})`;
+                                finalWkt = `MULTIPOLYGON (${polygonContents.join(", ")})`;
                             }
                         } else if (predominantType === "POINT") {
                             const pointContents = wktStrings.map((wkt) => {
                                 const match = wkt.match(/POINT\s*\(\s*(.*?)\s*\)/i);
-                                return match ? `(\${match[1]})` : null;
+                                return match ? `(${match[1]})` : null;
                             }).filter(Boolean);
                             if (pointContents.length > 0) {
-                                finalWkt = `MULTIPOINT (\${pointContents.join(", ")})`;
+                                finalWkt = `MULTIPOINT (${pointContents.join(", ")})`;
                             }
                         } else if (predominantType === "LINESTRING") {
                             const lineContents = wktStrings.map((wkt) => {
                                 const match = wkt.match(/LINESTRING\s*\(\s*(.*?)\s*\)/i);
-                                return match ? `(\${match[1]})` : null;
+                                return match ? `(${match[1]})` : null;
                             }).filter(Boolean);
                             if (lineContents.length > 0) {
-                                finalWkt = `MULTILINESTRING (\${lineContents.join(", ")})`;
+                                finalWkt = `MULTILINESTRING (${lineContents.join(", ")})`;
                             }
                         }
                     } else if (wktStrings.length > 1) {
-                        finalWkt = `GEOMETRYCOLLECTION (\${wktStrings.join(", ")})`;
+                        finalWkt = `GEOMETRYCOLLECTION (${wktStrings.join(", ")})`;
                     } else if (wktStrings.length === 1) {
                         finalWkt = wktStrings[0];
                     }
@@ -1098,15 +1098,37 @@ function convertPolygonsToMultipolygon(input) {
     const polygons = input.split("\n").filter((line) => line.trim() !== "");
     if (polygons.length === 0) return "";
     if (input.trim().toUpperCase().startsWith("MULTIPOLYGON")) return input.trim();
-    const polygonParts = polygons.map((polygon) => {
-        const match = polygon.match(/POLYGON\s*\(\((.*?)\)\)/i);
-        if (match && match[1]) return `(\${match[1]})`;
-        return null;
-    }).filter((part) => part !== null);
+    
+    const polygonParts = [];
+    
+    polygons.forEach((polygon) => {
+        const cleanPolygon = polygon.trim();
+        
+        // Tenta match com POLYGON((coordenadas)) - formato correto
+        let match = cleanPolygon.match(/POLYGON\s*\(\s*\((.*?)\)\s*\)/i);
+        if (match && match[1]) {
+            polygonParts.push(`((${match[1]}))`);
+            return;
+        }
+        
+        // Tenta match com POLYGON(coordenadas) - formato sem duplo parênteses
+        match = cleanPolygon.match(/POLYGON\s*\(\s*([^()]+(?:\([^)]*\)[^()]*)*)\s*\)/i);
+        if (match && match[1]) {
+            polygonParts.push(`((${match[1]}))`);
+            return;
+        }
+        
+        // Se não é um POLYGON reconhecido, tenta como coordenadas diretas
+        if (cleanPolygon.match(/^-?\d+\.?\d*\s+-?\d+\.?\d*/)) {
+            polygonParts.push(`((${cleanPolygon}))`);
+        }
+    });
+    
     if (polygonParts.length === 0) {
         return "Formato de entrada inválido. Verifique se os polígonos estão no formato correto.";
     }
-    return `MULTIPOLYGON (\${polygonParts.join(",")})`;
+    
+    return `MULTIPOLYGON (${polygonParts.join(",")})`;
 }
 
 function convertMultipolygonToPolygons(input) {
@@ -1129,7 +1151,7 @@ function convertMultipolygonToPolygons(input) {
             if (depth === 0) polygons.push(content.substring(start, i + 1));
         }
     }
-    return polygons.map((polygon) => `POLYGON (\${polygon})`).join("\n");
+    return polygons.map((polygon) => `POLYGON (${polygon})`).join("\n");
 }
 
 function concatenateMultipolygons(input) {
@@ -1155,7 +1177,7 @@ function concatenateMultipolygons(input) {
     if (allPolygons.length === 0) {
         return "Formato de entrada inválido. Verifique se os multipolígonos estão no formato correto.";
     }
-    return `MULTIPOLYGON (\${allPolygons.join(",")})`;
+    return `MULTIPOLYGON (${allPolygons.join(",")})`;
 }
 
 function convertMultipointToMultipolygon(input) {
@@ -1186,9 +1208,9 @@ function convertMultipointToMultipolygon(input) {
     const size = 0.00001;
     const polygons = points.map((point) => {
         const [x, y] = point.split(/\s+/).map(Number);
-        return `((\${x - size} \${y - size}, \${x + size} \${y - size}, \${x + size} \${y + size}, \${x - size} \${y + size}, \${x - size} \${y - size}))`;
+        return `((${x - size} ${y - size}, ${x + size} ${y - size}, ${x + size} ${y + size}, ${x - size} ${y + size}, ${x - size} ${y - size}))`;
     });
-    return `MULTIPOLYGON (\${polygons.join(", ")})`;
+    return `MULTIPOLYGON (${polygons.join(", ")})`;
 }
 
 function concatenateMultipoints(input) {
@@ -2150,6 +2172,7 @@ function loadExampleConversion() {
     const conversionType = document.getElementById("conversionType");
     
     // Exemplo: polígonos separados para converter em multipolígono
+    // Formatos WKT válidos com duplos parênteses
     const examplePolygons = `POLYGON((-46.65 -23.55, -46.64 -23.55, -46.64 -23.54, -46.65 -23.54, -46.65 -23.55))
 POLYGON((-46.63 -23.56, -46.62 -23.56, -46.62 -23.55, -46.63 -23.55, -46.63 -23.56))
 POLYGON((-46.67 -23.57, -46.66 -23.57, -46.66 -23.56, -46.67 -23.56, -46.67 -23.57))`;
