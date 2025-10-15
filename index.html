@@ -24,6 +24,11 @@
                     <h1><i class="fas fa-map-marked-alt"></i> Ferramentas de Mapas</h1>
                     <small>Conversor de Polígonos e Visualizador de Mapas</small>
                 </div>
+                <div>
+                    <button id="helpBtn" class="btn btn-outline-light btn-sm" title="Ajuda e Exemplos">
+                        <i class="fas fa-info-circle"></i> Ajuda
+                    </button>
+                </div>
             </div>
 
             <!-- Main Content -->
@@ -155,6 +160,86 @@
         <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
         
+        <!-- Help Modal -->
+        <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="helpModalLabel">
+                            <i class="fas fa-info-circle text-primary"></i> Ajuda e Exemplos
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-map-marked-alt text-success"></i> Como Usar a Aplicação</h6>
+                                <div class="help-section">
+                                    <h6>📍 Visualizar no Mapa</h6>
+                                    <ul>
+                                        <li>Adicione camadas usando o botão <span class="badge bg-success">+</span></li>
+                                        <li>Clique em uma camada para centralizar no mapa</li>
+                                        <li>Use os controles para alterar cor, opacidade e visibilidade</li>
+                                        <li>Arraste camadas para reordenar</li>
+                                    </ul>
+                                    
+                                    <h6>🔄 Converter Geometrias</h6>
+                                    <ul>
+                                        <li>Abra os conversores com o botão na parte inferior</li>
+                                        <li>Cole suas geometrias no campo "Entrada"</li>
+                                        <li>Escolha o tipo de conversão desejada</li>
+                                        <li>Clique em "Converter" e depois "Adicionar como camada"</li>
+                                    </ul>
+                                    
+                                    <h6>💾 Salvar/Carregar</h6>
+                                    <ul>
+                                        <li>Use o menu ⋮ para salvar, exportar ou importar camadas</li>
+                                        <li>Dados são salvos automaticamente no navegador</li>
+                                        <li>Exporte como JSON para backup</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-layer-group text-primary"></i> Exemplos de Camadas</h6>
+                                <div class="help-section">
+                                    <p class="text-muted">Clique no botão abaixo para adicionar camadas de exemplo em São Paulo:</p>
+                                    
+                                    <div class="example-buttons mb-3">
+                                        <button id="addExampleLayers" class="btn btn-outline-primary btn-sm mb-2">
+                                            <i class="fas fa-plus-circle"></i> Adicionar camadas de exemplo
+                                        </button>
+                                    </div>
+                                    
+                                    <h6><i class="fas fa-exchange-alt text-warning"></i> Exemplo de Conversão</h6>
+                                    <p class="text-muted">Experimente uma conversão real:</p>
+                                    <button id="exampleConversion" class="btn btn-outline-info btn-sm">
+                                        <i class="fas fa-cogs"></i> Carregar Exemplo de Conversão
+                                    </button>
+                                </div>
+                                
+                                <div class="help-section mt-4">
+                                    <h6><i class="fas fa-keyboard text-secondary"></i> Atalhos</h6>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <small><kbd>Esc</kbd> Fechar painéis</small><br>
+                                            <small><kbd>Ctrl+C</kbd> Copiar resultado</small>
+                                        </div>
+                                        <div class="col-6">
+                                            <small><kbd>→</kbd> Esconder sidebar</small><br>
+                                            <small><kbd>Click</kbd> Centralizar camada</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Application Script -->
         <script src="script.js"></script>
     </body>

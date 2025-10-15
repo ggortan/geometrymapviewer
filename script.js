@@ -11,6 +11,7 @@ function initializeMap() {
     if (!map) {
         map = L.map("map", {
             fullscreenControl: true,
+            attributionControl: false,
         }).setView([0, 0], 2);
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {}).addTo(map);
         layerGroup = L.layerGroup().addTo(map);
@@ -1324,6 +1325,7 @@ function saveUISettings() {
     try {
         const settings = {
             sidebarWidth: document.querySelector('.sidebar')?.offsetWidth || 350,
+            sidebarHidden: document.querySelector('.sidebar')?.classList.contains('hidden') || false,
             converterHeight: document.querySelector('#converterPanel')?.offsetHeight || window.innerHeight * 0.5,
             converterVisible: document.querySelector('#converterPanel')?.classList.contains('show') || false,
             notificationsEnabled: localStorage.getItem("notificationsEnabled") !== "false"
@@ -1348,6 +1350,18 @@ function loadUISettings() {
         const sidebar = document.querySelector('.sidebar');
         if (sidebar && settings.sidebarWidth) {
             sidebar.style.width = settings.sidebarWidth + 'px';
+        }
+        
+        // Apply sidebar visibility
+        if (settings.sidebarHidden) {
+            const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+            const sidebarFloatingToggle = document.getElementById("sidebarFloatingToggle");
+            const toggleIcon = sidebarToggleBtn?.querySelector('i');
+            
+            sidebar?.classList.add('hidden');
+            if (sidebarFloatingToggle) sidebarFloatingToggle.style.display = 'flex';
+            if (toggleIcon) toggleIcon.className = 'fas fa-chevron-left';
+            if (sidebarToggleBtn) sidebarToggleBtn.title = 'Mostrar barra lateral';
         }
         
         // Apply converter panel height
@@ -1574,8 +1588,9 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!isSidebarResizing) return;
             const dx = e.clientX - startSidebarX;
             let newWidth = startSidebarWidth - dx; // Invertido: arrastar esquerda aumenta, direita diminui
-            newWidth = Math.max(340, Math.min(600, newWidth));
+            newWidth = Math.max(280, Math.min(600, newWidth));
             sidebar.style.width = newWidth + 'px';
+            sidebar.style.minWidth = newWidth + 'px';
         });
         document.addEventListener('mouseup', function() {
             if (isSidebarResizing) {
@@ -1770,6 +1785,35 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("editLayerWKT").value = "";
         document.getElementById("submitLayerBtn").textContent = "Adicionar Camada";
         addLayerModal.show();
+    });
+
+    // Help modal functionality
+    const helpBtn = document.getElementById("helpBtn");
+    const helpModal = new bootstrap.Modal(document.getElementById("helpModal"));
+    
+    helpBtn.addEventListener("click", function () {
+        helpModal.show();
+    });
+
+    // Example buttons
+    document.getElementById("addExampleLayers").addEventListener("click", function () {
+        addAllExampleLayers();
+    });
+
+    document.getElementById("exampleConversion").addEventListener("click", function () {
+        loadExampleConversion();
+    });
+
+    // Sidebar toggle functionality
+    const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+    const sidebarFloatingToggle = document.getElementById("sidebarFloatingToggle");
+
+    sidebarToggleBtn.addEventListener("click", function () {
+        toggleSidebar();
+    });
+
+    sidebarFloatingToggle.addEventListener("click", function () {
+        toggleSidebar();
     });
 
     // Event listener para editar removido - agora é tratado em updateLayerList()
@@ -2028,4 +2072,112 @@ function initializeSelect2() {
         theme: 'bootstrap-5',
         width: '100%'
     });
+}
+
+// Função para alternar visibilidade da sidebar
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+    const sidebarFloatingToggle = document.getElementById("sidebarFloatingToggle");
+    const toggleIcon = sidebarToggleBtn.querySelector('i');
+    
+    if (sidebar.classList.contains('hidden')) {
+        // Mostrar sidebar
+        sidebar.classList.remove('hidden');
+        sidebarFloatingToggle.style.display = 'none';
+        toggleIcon.className = 'fas fa-chevron-right';
+        sidebarToggleBtn.title = 'Esconder barra lateral';
+    } else {
+        // Esconder sidebar
+        sidebar.classList.add('hidden');
+        sidebarFloatingToggle.style.display = 'flex';
+        toggleIcon.className = 'fas fa-chevron-left';
+        sidebarToggleBtn.title = 'Mostrar barra lateral';
+    }
+    
+    // Salvar estado da UI
+    saveUISettings();
+}
+
+// Funções de exemplo
+function addAllExampleLayers() {
+    // Exemplo 1: WKT Multipolígono
+    const multiPolygonWkt = `MULTIPOLYGON(((-46.65 -23.55, -46.64 -23.55, -46.64 -23.54, -46.65 -23.54, -46.65 -23.55)),((-46.63 -23.56, -46.62 -23.56, -46.62 -23.55, -46.63 -23.55, -46.63 -23.56)))`;
+    addLayerToMap(multiPolygonWkt, "Exemplo Multipolígono SP", "#e74c3c", 0.6, true);
+    
+    // Exemplo 2: WKT Multipoint
+    const multiPointWkt = `MULTIPOINT((-46.6333 -23.5505), (-46.6511 -23.5448), (-46.6388 -23.5613), (-46.6283 -23.5486), (-46.6454 -23.5576))`;
+    addLayerToMap(multiPointWkt, "Exemplo Multipoint SP", "#3498db", 0.8, true);
+    
+    // Exemplo 3: GeoJSON
+    const geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {"name": "Praça da Sé"},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[
+                        [-46.6344, -23.5505],
+                        [-46.6334, -23.5505],
+                        [-46.6334, -23.5495],
+                        [-46.6344, -23.5495],
+                        [-46.6344, -23.5505]
+                    ]]
+                }
+            },
+            {
+                "type": "Feature",
+                "properties": {"name": "Marco Zero"},
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [-46.6339, -23.5500]
+                }
+            }
+        ]
+    };
+    addLayerFromGeojson(geojson, "Exemplo GeoJSON SP", "#f39c12", 0.7, true);
+    
+    // Centralizar no mapa em São Paulo
+    if (map) {
+        map.setView([-23.55, -46.64], 12);
+    }
+}
+
+function loadExampleConversion() {
+    const inputText = document.getElementById("inputText");
+    const conversionType = document.getElementById("conversionType");
+    
+    // Exemplo: polígonos separados para converter em multipolígono
+    const examplePolygons = `POLYGON((-46.65 -23.55, -46.64 -23.55, -46.64 -23.54, -46.65 -23.54, -46.65 -23.55))
+POLYGON((-46.63 -23.56, -46.62 -23.56, -46.62 -23.55, -46.63 -23.55, -46.63 -23.56))
+POLYGON((-46.67 -23.57, -46.66 -23.57, -46.66 -23.56, -46.67 -23.56, -46.67 -23.57))`;
+    
+    // Preencher os campos
+    inputText.value = examplePolygons;
+    conversionType.value = "polygonsToMultipolygon";
+    
+    // Atualizar o Select2 se estiver inicializado
+    if (typeof $ !== 'undefined' && $('#conversionType').data('select2')) {
+        $('#conversionType').trigger('change');
+    }
+    
+    // Abrir o painel de conversores se não estiver aberto
+    const converterPanel = document.getElementById("converterPanel");
+    const converterToggleBtn = document.getElementById("converterToggleBtn");
+    
+    if (!converterPanel.classList.contains('show')) {
+        converterPanel.classList.add('show');
+        converterToggleBtn.querySelector('i').classList.replace('fa-chevron-up', 'fa-chevron-down');
+        converterToggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i> Fechar Conversores';
+    }
+    
+    // Fechar modal de ajuda
+    const helpModal = bootstrap.Modal.getInstance(document.getElementById("helpModal"));
+    if (helpModal) {
+        helpModal.hide();
+    }
+    
+    showToast("Exemplo carregado! Clique em 'Converter' para ver o resultado", "info");
 }
