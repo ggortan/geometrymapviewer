@@ -1989,14 +1989,14 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Load saved layers on page load only if explicitly requested
+    // Load saved layers on page load
     window.addEventListener("load", function () {
         setTimeout(() => {
-            // Check URL parameter to load saved data
+            // Check URL parameter to skip loading saved data (clean start)
             const urlParams = new URLSearchParams(window.location.search);
-            const loadSaved = urlParams.get('load') === 'true';
+            const cleanStart = urlParams.get('clean') === 'true';
             
-            if (loadSaved) {
+            if (!cleanStart) {
                 loadLayersFromLocalStorage();
             }
             loadUISettings();
