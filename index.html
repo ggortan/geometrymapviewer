@@ -248,8 +248,25 @@
                 });
             }
 
+            // Initialize map on page load
+            function initializeMap() {
+                if (!map) {
+                    map = L.map("map", {
+                        fullscreenControl: true,
+                    }).setView([0, 0], 2);
+                    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    }).addTo(map);
+                    layerGroup = L.layerGroup().addTo(map);
+                    baseLayerGroup = L.layerGroup().addTo(map);
+                }
+            }
+
             // Toggle converter section
             document.addEventListener("DOMContentLoaded", function () {
+                // Initialize the map immediately
+                initializeMap();
+
                 const toggleBtn = document.getElementById("toggleConverterBtn");
                 const converterSection = document.getElementById("converterSection");
                 
@@ -301,12 +318,9 @@
             }
 
             function plotWKTOnMap(wktString) {
+                // Ensure map is initialized
                 if (!map) {
-                    map = L.map("map", {
-                        fullscreenControl: true,
-                    }).setView([0, 0], 2);
-                    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {}).addTo(map);
-                    layerGroup = L.layerGroup().addTo(map);
+                    initializeMap();
                 }
                 layerGroup.clearLayers();
 
@@ -343,11 +357,9 @@
             }
 
             function addLayerToMap(wkt, name = null, color = null, opacity = 0.4) {
+                // Ensure map is initialized
                 if (!map) {
-                    map = L.map("map", {
-                        fullscreenControl: true,
-                    }).setView([0, 0], 2);
-                    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {}).addTo(map);
+                    initializeMap();
                 }
                 if (!baseLayerGroup) {
                     baseLayerGroup = L.layerGroup().addTo(map);
