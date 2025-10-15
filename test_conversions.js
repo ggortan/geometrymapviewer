@@ -61,40 +61,13 @@ function convertWktToGeojson(input) {
         const trimmedLine = line.trim();
         if (!trimmedLine) continue;
         
-        try {
-            if (trimmedLine.startsWith('POLYGON')) {
-                const match = trimmedLine.match(/POLYGON\s*\(\s*\(([^)]+)\)\s*\)/);
-                if (match) {
-                    const coords = match[1].split(',').map(coord => {
-                        const [lon, lat] = coord.trim().split(/\s+/);
-                        return [parseFloat(lon), parseFloat(lat)];
-                    });
-                    
-                    features.push({
-                        type: "Feature",
-                        properties: {},
-                        geometry: {
-                            type: "Polygon",
-                            coordinates: [coords]
-                        }
-                    });
-                }
-            } else if (trimmedLine.startsWith('POINT')) {
-                const match = trimmedLine.match(/POINT\s*\(\s*([^)]+)\s*\)/);
-                if (match) {
-                    const [lon, lat] = match[1].trim().split(/\s+/);
-                    features.push({
-                        type: "Feature",
-                        properties: {},
-                        geometry: {
-                            type: "Point",
-                            coordinates: [parseFloat(lon), parseFloat(lat)]
-                        }
-                    });
-                }
-            }
-        } catch (error) {
-            console.error("Erro ao processar linha:", trimmedLine, error);
+        const geometry = parseWktToGeometry(trimmedLine);
+        if (geometry) {
+            features.push({
+                type: "Feature",
+                properties: {},
+                geometry: geometry
+            });
         }
     }
     
@@ -106,6 +79,62 @@ function convertWktToGeojson(input) {
         type: "FeatureCollection",
         features: features
     }, null, 2);
+}
+
+// Parser manual para WKT
+function parseWktToGeometry(wkt) {
+    const trimmed = wkt.trim().toUpperCase();
+    
+    try {
+        if (trimmed.startsWith('POINT')) {
+            const match = trimmed.match(/POINT\s*\(\s*([^)]+)\s*\)/);
+            if (match) {
+                const coords = match[1].trim().split(/\s+/);
+                return {
+                    type: "Point",
+                    coordinates: [parseFloat(coords[0]), parseFloat(coords[1])]
+                };
+            }
+        } else if (trimmed.startsWith('POLYGON')) {
+            const match = trimmed.match(/POLYGON\s*\(\s*\(([^)]+)\)\s*\)/);
+            if (match) {
+                const coordsStr = match[1];
+                const coordinates = coordsStr.split(',').map(coord => {
+                    const [lon, lat] = coord.trim().split(/\s+/);
+                    return [parseFloat(lon), parseFloat(lat)];
+                });
+                return {
+                    type: "Polygon",
+                    coordinates: [coordinates]
+                };
+            }
+        } else if (trimmed.startsWith('MULTIPOLYGON')) {
+            // Implementação básica para MULTIPOLYGON
+            const regex = /\(\s*\(\s*([^)]+)\s*\)\s*\)/g;
+            const polygons = [];
+            let match;
+            
+            while ((match = regex.exec(trimmed)) !== null) {
+                const coordsStr = match[1];
+                const coordinates = coordsStr.split(',').map(coord => {
+                    const [lon, lat] = coord.trim().split(/\s+/);
+                    return [parseFloat(lon), parseFloat(lat)];
+                });
+                polygons.push([coordinates]);
+            }
+            
+            if (polygons.length > 0) {
+                return {
+                    type: "MultiPolygon",
+                    coordinates: polygons
+                };
+            }
+        }
+    } catch (error) {
+        console.warn('Erro no parser manual:', error);
+    }
+    
+    return null;
 }
 
 function convertGeojsonToWkt(input) {

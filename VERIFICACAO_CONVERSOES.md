@@ -23,6 +23,12 @@
 - Validação de entrada melhorada
 - Logs de debug adicionados
 
+### 4. **Parser Manual de WKT ↔ GeoJSON**
+- **Problema**: Dependência da biblioteca Wicket.js que pode falhar
+- **Correção**: Implementado parser manual como fallback
+- **Geometrias suportadas**: POINT, POLYGON, MULTIPOLYGON, LINESTRING, MULTIPOINT
+- **Robustez**: Funciona mesmo se Wicket.js não estiver disponível
+
 ## ✅ Funções de Conversão Verificadas
 
 ### 1. `convertPolygonsToMultipolygon(input)`
@@ -74,11 +80,15 @@
 ## 🧪 Como Testar
 
 ### No Navegador:
-1. Abra a aplicação
+1. Abra a aplicação em http://localhost:8081
 2. Clique no botão "Ajuda" (❓)
 3. Use os botões de exemplo para carregar dados de teste
 4. Clique em "Testar Todas as Conversões" para verificação automática
 5. Verifique o console (F12) para logs detalhados
+
+### Debug Específico:
+- No console do navegador, execute: `debugConversions()` para teste detalhado
+- No console do navegador, execute: `testAllConversions()` para teste completo
 
 ### Exemplos de Teste Manual:
 

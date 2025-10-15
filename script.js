@@ -1267,27 +1267,40 @@ function convertWktToGeojson(input) {
         const features = [];
         
         lines.forEach(line => {
-            const wkt = new Wkt.Wkt();
-            try {
-                wkt.read(line.trim());
-                const geojson = wkt.toJson();
-                
+            const trimmedLine = line.trim();
+            if (!trimmedLine) return;
+            
+            // Tentar usar Wicket se disponível
+            if (typeof Wkt !== 'undefined' && Wkt.Wkt) {
+                try {
+                    const wkt = new Wkt.Wkt();
+                    wkt.read(trimmedLine);
+                    const geojson = wkt.toJson();
+                    
+                    features.push({
+                        type: "Feature",
+                        properties: {},
+                        geometry: geojson
+                    });
+                    return;
+                } catch (e) {
+                    console.warn('Wicket falhou, tentando parser manual:', e);
+                }
+            }
+            
+            // Parser manual como fallback
+            const geometry = parseWktToGeometry(trimmedLine);
+            if (geometry) {
                 features.push({
                     type: "Feature",
                     properties: {},
-                    geometry: geojson
+                    geometry: geometry
                 });
-            } catch (e) {
-                console.warn('Erro ao converter WKT:', line, e);
             }
         });
         
         if (features.length === 0) {
             return "Nenhuma geometria WKT válida encontrada.";
-        }
-        
-        if (features.length === 1) {
-            return JSON.stringify(features[0].geometry, null, 2);
         }
         
         return JSON.stringify({
@@ -1300,6 +1313,62 @@ function convertWktToGeojson(input) {
     }
 }
 
+// Parser manual para WKT
+function parseWktToGeometry(wkt) {
+    const trimmed = wkt.trim().toUpperCase();
+    
+    try {
+        if (trimmed.startsWith('POINT')) {
+            const match = trimmed.match(/POINT\s*\(\s*([^)]+)\s*\)/);
+            if (match) {
+                const coords = match[1].trim().split(/\s+/);
+                return {
+                    type: "Point",
+                    coordinates: [parseFloat(coords[0]), parseFloat(coords[1])]
+                };
+            }
+        } else if (trimmed.startsWith('POLYGON')) {
+            const match = trimmed.match(/POLYGON\s*\(\s*\(([^)]+)\)\s*\)/);
+            if (match) {
+                const coordsStr = match[1];
+                const coordinates = coordsStr.split(',').map(coord => {
+                    const [lon, lat] = coord.trim().split(/\s+/);
+                    return [parseFloat(lon), parseFloat(lat)];
+                });
+                return {
+                    type: "Polygon",
+                    coordinates: [coordinates]
+                };
+            }
+        } else if (trimmed.startsWith('MULTIPOLYGON')) {
+            // Implementação básica para MULTIPOLYGON
+            const regex = /\(\s*\(\s*([^)]+)\s*\)\s*\)/g;
+            const polygons = [];
+            let match;
+            
+            while ((match = regex.exec(trimmed)) !== null) {
+                const coordsStr = match[1];
+                const coordinates = coordsStr.split(',').map(coord => {
+                    const [lon, lat] = coord.trim().split(/\s+/);
+                    return [parseFloat(lon), parseFloat(lat)];
+                });
+                polygons.push([coordinates]);
+            }
+            
+            if (polygons.length > 0) {
+                return {
+                    type: "MultiPolygon",
+                    coordinates: polygons
+                };
+            }
+        }
+    } catch (error) {
+        console.warn('Erro no parser manual:', error);
+    }
+    
+    return null;
+}
+
 function convertGeojsonToWkt(input) {
     try {
         const geojson = JSON.parse(input.trim());
@@ -1307,21 +1376,26 @@ function convertGeojsonToWkt(input) {
         
         if (geojson.type === "FeatureCollection") {
             geojson.features.forEach(feature => {
-                const wkt = new Wkt.Wkt();
-                wkt.read(feature.geometry);
-                results.push(wkt.write());
+                if (feature.geometry) {
+                    const wkt = geometryToWkt(feature.geometry);
+                    if (wkt) results.push(wkt);
+                }
             });
         } else if (geojson.type === "Feature") {
-            const wkt = new Wkt.Wkt();
-            wkt.read(geojson.geometry);
-            results.push(wkt.write());
+            if (geojson.geometry) {
+                const wkt = geometryToWkt(geojson.geometry);
+                if (wkt) results.push(wkt);
+            }
         } else if (geojson.type) {
             // É uma geometria direta
-            const wkt = new Wkt.Wkt();
-            wkt.read(geojson);
-            results.push(wkt.write());
+            const wkt = geometryToWkt(geojson);
+            if (wkt) results.push(wkt);
         } else {
             return "Formato GeoJSON inválido.";
+        }
+        
+        if (results.length === 0) {
+            return "Nenhuma geometria válida encontrada no GeoJSON.";
         }
         
         return results.join('\n');
@@ -1329,6 +1403,69 @@ function convertGeojsonToWkt(input) {
     } catch (error) {
         return `Erro na conversão GeoJSON para WKT: ${error.message}`;
     }
+}
+
+// Converter geometria GeoJSON para WKT
+function geometryToWkt(geometry) {
+    if (!geometry || !geometry.type) return null;
+    
+    // Tentar usar Wicket se disponível
+    if (typeof Wkt !== 'undefined' && Wkt.Wkt) {
+        try {
+            const wkt = new Wkt.Wkt();
+            wkt.read(geometry);
+            return wkt.write();
+        } catch (e) {
+            console.warn('Wicket falhou, usando parser manual:', e);
+        }
+    }
+    
+    // Parser manual como fallback
+    try {
+        switch (geometry.type) {
+            case 'Point':
+                if (geometry.coordinates && geometry.coordinates.length >= 2) {
+                    return `POINT (${geometry.coordinates[0]} ${geometry.coordinates[1]})`;
+                }
+                break;
+                
+            case 'Polygon':
+                if (geometry.coordinates && geometry.coordinates[0]) {
+                    const coords = geometry.coordinates[0].map(coord => `${coord[0]} ${coord[1]}`).join(', ');
+                    return `POLYGON ((${coords}))`;
+                }
+                break;
+                
+            case 'MultiPolygon':
+                if (geometry.coordinates && geometry.coordinates.length > 0) {
+                    const polygons = geometry.coordinates.map(polygon => {
+                        const ring = polygon[0]; // Assumindo apenas anel externo
+                        const coords = ring.map(coord => `${coord[0]} ${coord[1]}`).join(', ');
+                        return `((${coords}))`;
+                    });
+                    return `MULTIPOLYGON (${polygons.join(', ')})`;
+                }
+                break;
+                
+            case 'LineString':
+                if (geometry.coordinates && geometry.coordinates.length > 0) {
+                    const coords = geometry.coordinates.map(coord => `${coord[0]} ${coord[1]}`).join(', ');
+                    return `LINESTRING (${coords})`;
+                }
+                break;
+                
+            case 'MultiPoint':
+                if (geometry.coordinates && geometry.coordinates.length > 0) {
+                    const points = geometry.coordinates.map(coord => `(${coord[0]} ${coord[1]})`).join(', ');
+                    return `MULTIPOINT (${points})`;
+                }
+                break;
+        }
+    } catch (error) {
+        console.warn('Erro no parser manual de geometria:', error);
+    }
+    
+    return null;
 }
 
 // Storage functions
@@ -1867,6 +2004,60 @@ POLYGON((-46.63 -23.56, -46.62 -23.56, -46.62 -23.55, -46.63 -23.55, -46.63 -23.
         }
         
         return passedTests === totalTests;
+    };
+
+    // Função de debug para testar conversões específicas
+    window.debugConversions = function() {
+        console.log("🔍 Teste de debug das conversões WKT ↔ GeoJSON");
+        
+        // Teste 1: WKT para GeoJSON
+        console.log("\n--- Teste WKT para GeoJSON ---");
+        const wktInput = "POLYGON((-46.6344 -23.5505, -46.6334 -23.5505, -46.6334 -23.5495, -46.6344 -23.5495, -46.6344 -23.5505))";
+        console.log("Input:", wktInput);
+        
+        const geojsonResult = convertWktToGeojson(wktInput);
+        console.log("Output:", geojsonResult);
+        console.log("Status:", geojsonResult.includes('"type": "FeatureCollection"') ? "✅ SUCESSO" : "❌ FALHA");
+        
+        // Teste 2: GeoJSON para WKT
+        console.log("\n--- Teste GeoJSON para WKT ---");
+        const geojsonInput = `{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-46.6344, -23.5505],
+          [-46.6334, -23.5505],
+          [-46.6334, -23.5495],
+          [-46.6344, -23.5495],
+          [-46.6344, -23.5505]
+        ]]
+      }
+    }
+  ]
+}`;
+        console.log("Input:", geojsonInput.substring(0, 100) + "...");
+        
+        const wktResult = convertGeojsonToWkt(geojsonInput);
+        console.log("Output:", wktResult);
+        console.log("Status:", wktResult.startsWith("POLYGON") ? "✅ SUCESSO" : "❌ FALHA");
+        
+        // Teste da biblioteca Wicket
+        console.log("\n--- Teste Wicket.js ---");
+        console.log("Wicket disponível:", typeof Wkt !== 'undefined' ? "✅ SIM" : "❌ NÃO");
+        if (typeof Wkt !== 'undefined' && Wkt.Wkt) {
+            try {
+                const testWkt = new Wkt.Wkt();
+                testWkt.read("POINT(-46.6339 -23.5500)");
+                console.log("Wicket funcional:", "✅ SIM");
+            } catch (e) {
+                console.log("Wicket funcional:", "❌ NÃO -", e.message);
+            }
+        }
     };
 
     copyBtn.addEventListener("click", function () {
