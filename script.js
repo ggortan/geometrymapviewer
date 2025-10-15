@@ -829,6 +829,34 @@ function importLayers(file) {
 
 // DOM initialization
 document.addEventListener("DOMContentLoaded", function () {
+    // Sidebar resize logic
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarHandle = document.querySelector('.sidebar-resize-handle');
+    let isSidebarResizing = false;
+    let startSidebarX = 0;
+    let startSidebarWidth = 0;
+    if (sidebar && sidebarHandle) {
+        sidebarHandle.addEventListener('mousedown', function(e) {
+            isSidebarResizing = true;
+            startSidebarX = e.clientX;
+            startSidebarWidth = sidebar.offsetWidth;
+            document.body.style.cursor = 'ew-resize';
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!isSidebarResizing) return;
+            const dx = e.clientX - startSidebarX;
+            let newWidth = startSidebarWidth + dx;
+            newWidth = Math.max(220, Math.min(600, newWidth));
+            sidebar.style.width = newWidth + 'px';
+        });
+        document.addEventListener('mouseup', function() {
+            if (isSidebarResizing) {
+                isSidebarResizing = false;
+                document.body.style.cursor = '';
+            }
+        });
+    }
     const inputText = document.getElementById("inputText");
     const outputText = document.getElementById("outputText");
     const convertBtn = document.getElementById("convertBtn");
