@@ -496,3 +496,39 @@ textarea.form-control {
     height: 1rem;
     border-width: 0.2rem;
 }
+
+/* Select2 Customizations */
+.select2-container--bootstrap-5 .select2-selection {
+    min-height: 38px;
+}
+
+.select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
+.select2-results__option {
+    padding: 8px 12px;
+}
+
+/* Badges simples sem cores */
+.select2-results__option .badge,
+.select2-selection__rendered .badge {
+    background-color: #e9ecef !important;
+    color: #495057 !important;
+    border: 1px solid #ced4da;
+    font-size: 0.75em;
+    font-weight: 500;
+    min-width: 60px;
+    text-align: center;
+    padding: 0.25em 0.5em;
+}
+
+/* Optgroup styling */
+.select2-results__group {
+    font-weight: bold;
+    color: #495057;
+    background-color: #f8f9fa;
+    padding: 8px 12px;
+    border-bottom: 1px solid #dee2e6;
+}

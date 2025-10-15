@@ -2017,4 +2017,60 @@ document.addEventListener("DOMContentLoaded", function () {
     
     // Initialize notification button text
     setTimeout(updateNotificationButtonText, 100);
+    
+    // Initialize Select2 with badges
+    setTimeout(initializeSelect2, 100);
 });
+
+// Função para inicializar Select2 com badges customizados
+function initializeSelect2() {
+    $('#conversionType').select2({
+        theme: 'bootstrap-5',
+        width: '100%',
+        templateResult: formatConversionOption,
+        templateSelection: formatConversionSelection,
+        escapeMarkup: function(markup) { return markup; }
+    });
+}
+
+// Função para formatar as opções no dropdown
+function formatConversionOption(option) {
+    if (!option.id) {
+        return option.text;
+    }
+    
+    const $option = $(option.element);
+    const badge = $option.data('badge');
+    
+    if (badge) {
+        return $(`
+            <div>
+                <span class="badge me-2">${badge}</span>
+                ${option.text}
+            </div>
+        `);
+    }
+    
+    return option.text;
+}
+
+// Função para formatar a seleção atual
+function formatConversionSelection(option) {
+    if (!option.id) {
+        return option.text;
+    }
+    
+    const $option = $(option.element);
+    const badge = $option.data('badge');
+    
+    if (badge) {
+        return $(`
+            <div>
+                <span class="badge me-2">${badge}</span>
+                ${option.text}
+            </div>
+        `);
+    }
+    
+    return option.text;
+}
