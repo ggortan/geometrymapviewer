@@ -890,7 +890,10 @@
                 processShapefile(files)
                     .then((wktData) => {
                         // Adicionar o resultado ao textarea de saída
-                        outputText.value = wktData.wkt;
+                        const outputText = document.getElementById("outputText");
+                        if (outputText) {
+                            outputText.value = wktData.wkt;
+                        }
 
                         // Verificar se o WKT é válido
                         if (!wktData.wkt || wktData.wkt.trim() === "") {
@@ -913,7 +916,13 @@
 
                             if (success) {
                                 // Fechar o modal
-                                addLayerModal.hide();
+                                const addLayerModalElement = document.getElementById("addLayerModal");
+                                if (addLayerModalElement && window.bootstrap) {
+                                    const modalInstance = bootstrap.Modal.getInstance(addLayerModalElement);
+                                    if (modalInstance) {
+                                        modalInstance.hide();
+                                    }
+                                }
 
                                 // Mostrar mensagem de sucesso
                                 if (wktData.wkt.startsWith("GEOMETRYCOLLECTION")) {
