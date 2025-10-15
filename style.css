@@ -162,17 +162,21 @@ body {
     margin-right: 0.25rem;
 }
 
-.layer-name {
-    color: #007bff;
-    transition: color 0.2s, background-color 0.3s;
-    padding: 2px 4px;
-    border-radius: 3px;
+.clickable-layer {
+    cursor: pointer;
+    transition: background-color 0.2s;
 }
 
-.layer-name:hover {
+.clickable-layer:hover {
+    background-color: #f8f9fa !important;
+}
+
+.clickable-layer .layer-name {
+    color: #007bff;
+}
+
+.clickable-layer:hover .layer-name {
     color: #0056b3;
-    text-decoration: underline;
-    background-color: #f8f9fa;
 }
 
 /* Settings Dropdown */

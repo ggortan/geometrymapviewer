@@ -314,12 +314,12 @@ function centerMapOnLayer(idx) {
     const layer = userLayers[idx];
     if (!layer || !layer.layer) return;
     
-    // Add visual feedback on the layer name
-    const nameElement = document.querySelector(`.layer-name[data-idx="${idx}"]`);
-    if (nameElement) {
-        nameElement.style.backgroundColor = '#e3f2fd';
+    // Add visual feedback on the layer item
+    const layerElement = document.querySelector(`.clickable-layer[data-idx="${idx}"]`);
+    if (layerElement) {
+        layerElement.style.backgroundColor = '#e3f2fd';
         setTimeout(() => {
-            nameElement.style.backgroundColor = '';
+            layerElement.style.backgroundColor = '';
         }, 500);
     }
     
@@ -476,22 +476,13 @@ function showLayerPopup(e, layerName, layerIndex) {
     const popup = L.popup()
         .setLatLng(e.latlng)
         .setContent(`
-            <div style="text-align: center; padding: 8px; min-width: 200px;">
-                <strong style="color: #007bff;">${layerName}</strong><br>
-                <small style="color: #6c757d;">Camada ${layerIndex + 1}</small>
-                <hr style="margin: 8px 0;">
-                <div style="font-size: 12px; color: #495057;">
-                    <strong>Coordenadas:</strong><br>
-                    <span style="font-family: monospace;">
-                        Lat: ${lat}<br>
-                        Lng: ${lng}
-                    </span>
+            <div style="text-align: center; padding: 8px; min-width: 160px;">
+                <strong style="color: #007bff;">${layerName}</strong>
+                <hr style="margin: 8px 0; border: none; border-top: 1px solid #dee2e6;">
+                <div style="font-size: 12px; color: #495057; font-family: monospace;">
+                    Lat: ${lat}<br>
+                    Lng: ${lng}
                 </div>
-                <button onclick="navigator.clipboard.writeText('${lat}, ${lng}'); showToast('Coordenadas copiadas!', 'success');" 
-                        style="margin-top: 8px; padding: 4px 8px; font-size: 11px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;"
-                        title="Copiar coordenadas">
-                    📋 Copiar
-                </button>
             </div>
         `)
         .openOn(map);
@@ -503,9 +494,10 @@ function updateLayerList() {
     
     userLayers.forEach((l, idx) => {
         const li = document.createElement("li");
-        li.className = "list-group-item d-flex align-items-center justify-content-between draggable-layer";
+        li.className = "list-group-item d-flex align-items-center justify-content-between draggable-layer clickable-layer";
         li.draggable = true;
         li.dataset.idx = idx;
+        li.title = "Clique para centralizar no mapa";
         li.innerHTML = `
             <span class="drag-handle" title="Arraste para reordenar">
                 <i class="fas fa-grip-vertical"></i>
@@ -516,7 +508,7 @@ function updateLayerList() {
                 <button class="btn btn-sm btn-light visibility-toggle" data-idx="${idx}" title="Alternar visibilidade">
                     <i class="fas ${l.visible !== false ? 'fa-eye' : 'fa-eye-slash'}"></i>
                 </button>
-                <strong style="margin-left:8px; cursor: pointer;" class="layer-name" data-idx="${idx}" title="Clique para centralizar no mapa">${l.name}</strong>
+                <strong style="margin-left:8px;" class="layer-name">${l.name}</strong>
             </span>
             <span class="layer-buttons">
                 <button class="btn btn-sm btn-warning edit-layer" data-idx="${idx}" title="Editar camada"><i class="fas fa-edit"></i></button>
@@ -561,10 +553,14 @@ function updateLayerList() {
         });
     });
 
-    document.querySelectorAll(".layer-name").forEach((nameEl) => {
-        nameEl.addEventListener("click", (e) => {
+    document.querySelectorAll(".clickable-layer").forEach((layerEl) => {
+        layerEl.addEventListener("click", (e) => {
+            // Prevent centering if clicking on interactive elements
+            if (e.target.closest('button, input, .drag-handle')) {
+                return;
+            }
             e.preventDefault();
-            centerMapOnLayer(Number(nameEl.dataset.idx));
+            centerMapOnLayer(Number(layerEl.dataset.idx));
         });
     });
 
@@ -1336,7 +1332,22 @@ document.addEventListener("DOMContentLoaded", function () {
             });
             updateLayerList();
             showToast("Camada editada com sucesso!", "success");
-            addLayerModal.hide();
+            
+            // Force modal to close
+            if (addLayerModal) {
+                addLayerModal.hide();
+                // Double check modal is closed
+                setTimeout(() => {
+                    const modalElement = document.getElementById("addLayerModal");
+                    if (modalElement && modalElement.classList.contains('show')) {
+                        modalElement.classList.remove('show');
+                        modalElement.style.display = 'none';
+                        document.body.classList.remove('modal-open');
+                        const backdrop = document.querySelector('.modal-backdrop');
+                        if (backdrop) backdrop.remove();
+                    }
+                }, 100);
+            }
         } catch (err) {
             showToast("Erro ao atualizar camada. Verifique o WKT.", "danger");
         }
