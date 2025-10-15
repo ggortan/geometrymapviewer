@@ -1289,67 +1289,6 @@ function convertGeojsonToWkt(input) {
     }
 }
 
-function convertGeojsonToFeatureCollection(input) {
-    try {
-        const geojson = JSON.parse(input.trim());
-        
-        if (geojson.type === "FeatureCollection") {
-            return JSON.stringify(geojson, null, 2);
-        }
-        
-        let features = [];
-        
-        if (geojson.type === "Feature") {
-            features.push(geojson);
-        } else if (geojson.type) {
-            // É uma geometria direta
-            features.push({
-                type: "Feature",
-                properties: {},
-                geometry: geojson
-            });
-        } else {
-            return "Formato GeoJSON inválido.";
-        }
-        
-        return JSON.stringify({
-            type: "FeatureCollection",
-            features: features
-        }, null, 2);
-        
-    } catch (error) {
-        return `Erro na conversão para FeatureCollection: ${error.message}`;
-    }
-}
-
-function convertFeatureCollectionToGeojson(input) {
-    try {
-        const featureCollection = JSON.parse(input.trim());
-        
-        if (featureCollection.type !== "FeatureCollection") {
-            return "A entrada deve ser uma FeatureCollection.";
-        }
-        
-        if (!featureCollection.features || featureCollection.features.length === 0) {
-            return "FeatureCollection vazia ou inválida.";
-        }
-        
-        const geometries = featureCollection.features.map(feature => feature.geometry);
-        
-        if (geometries.length === 1) {
-            return JSON.stringify(geometries[0], null, 2);
-        }
-        
-        return JSON.stringify({
-            type: "GeometryCollection",
-            geometries: geometries
-        }, null, 2);
-        
-    } catch (error) {
-        return `Erro na conversão FeatureCollection: ${error.message}`;
-    }
-}
-
 // Storage functions
 function saveLayersToLocalStorage(showNotification = false) {
     const layersData = userLayers.map((layer, index) => ({
@@ -1761,10 +1700,6 @@ document.addEventListener("DOMContentLoaded", function () {
             convertedText = convertWktToGeojson(input);
         } else if (conversionType.value === "geojsonToWkt") {
             convertedText = convertGeojsonToWkt(input);
-        } else if (conversionType.value === "geojsonToFeatureCollection") {
-            convertedText = convertGeojsonToFeatureCollection(input);
-        } else if (conversionType.value === "featureCollectionToGeojson") {
-            convertedText = convertFeatureCollectionToGeojson(input);
         } else {
             convertedText = "";
         }
