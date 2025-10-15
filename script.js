@@ -2245,7 +2245,7 @@ function addAllExampleLayers() {
     addLayerToMap(multiPolygonWkt, "Exemplo Multipolígono SP", "#e74c3c", 0.6, true);
     
     // Exemplo 2: WKT Multipoint
-    const multiPointWkt = `MULTIPOINT((-46.6333 -23.5505), (-46.6511 -23.5448), (-46.6388 -23.5613), (-46.6283 -23.5486), (-46.6454 -23.5576))`;
+    const multiPointWkt = `MULTIPOINT((-46.649022 -23.549864), (-46.6511 -23.5448), (-46.6388 -23.5613), (-46.6283 -23.5486), (-46.6454 -23.5576))`;
     addLayerToMap(multiPointWkt, "Exemplo Multipoint SP", "#3498db", 0.8, true);
     
     // Exemplo 3: GeoJSON
