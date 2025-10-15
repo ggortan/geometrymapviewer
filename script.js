@@ -29,7 +29,7 @@ function showToast(message, type = "warning") {
         info: "bg-info text-white",
     };
     const toastId = "toast-" + Date.now();
-    const toastHTML = \`
+    const toastHTML = `
 <div id="\${toastId}" class="toast align-items-center \${bg[type] || bg.warning}" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
 <div class="d-flex">
 <div class="toast-body">
@@ -38,7 +38,7 @@ function showToast(message, type = "warning") {
 <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
 </div>
 </div>
-\`;
+`;
     const container = document.getElementById("toast-container");
     container.insertAdjacentHTML("beforeend", toastHTML);
     const toastEl = document.getElementById(toastId);
@@ -88,7 +88,7 @@ function plotWKTOnMap(wktString) {
 
 function getRandomColor() {
     const hue = Math.floor(Math.random() * 360);
-    return \`hsl(\${hue}, 70%, 60%)\`;
+    return `hsl(\${hue}, 70%, 60%)`;
 }
 
 function addLayerToMap(wkt, name = null, color = null, opacity = 0.4) {
@@ -102,7 +102,7 @@ function addLayerToMap(wkt, name = null, color = null, opacity = 0.4) {
         baseLayerGroup = L.layerGroup().addTo(map);
     }
     color = color || getRandomColor();
-    name = name || \`Camada \${userLayers.length + 1}\`;
+    name = name || `Camada \${userLayers.length + 1}`;
     wkt = wkt.trim();
     if (wkt.startsWith("SELECT ST_GeomFromText")) {
         wkt = wkt.replace(/^SELECT ST_GeomFromText\('(.+)'\)$/i, "$1");
@@ -286,7 +286,7 @@ function updateLayerList() {
     userLayers.forEach((l, idx) => {
         const li = document.createElement("li");
         li.className = "list-group-item d-flex align-items-center justify-content-between";
-        li.innerHTML = \`
+        li.innerHTML = `
 <span>
 <input type="color" value="\${rgb2hex(l.color)}" style="width: 32px; height: 32px; border: none; vertical-align: middle;" data-idx="\${idx}" class="layer-color-picker" title="Cor da camada">
 <input type="range" min="0" max="1" step="0.05" value="\${l.opacity}" data-idx="\${idx}" class="layer-opacity-slider" style="width:80px; vertical-align: middle;" title="Transparência">
@@ -298,7 +298,7 @@ function updateLayerList() {
 <button class="btn btn-sm btn-warning edit-layer" data-idx="\${idx}" title="Editar camada"><i class="fas fa-edit"></i></button>
 <button class="btn btn-sm btn-danger remove-layer" data-idx="\${idx}" title="Remover camada"><i class="fas fa-trash"></i></button>
 </span>
-\`;
+`;
         list.appendChild(li);
     });
 
@@ -353,19 +353,19 @@ function geomToWKT(geom) {
 
     switch (geom.type.toUpperCase()) {
         case "POINT":
-            return \`POINT (\${geom.coordinates.join(" ")})\`;
+            return `POINT (\${geom.coordinates.join(" ")})`;
         case "LINESTRING":
-            return \`LINESTRING (\${geom.coordinates.map((c) => c.join(" ")).join(", ")})\`;
+            return `LINESTRING (\${geom.coordinates.map((c) => c.join(" ")).join(", ")})`;
         case "POLYGON":
-            return \`POLYGON (\${geom.coordinates.map((ring) => "(" + ring.map((c) => c.join(" ")).join(", ") + ")").join(", ")})\`;
+            return `POLYGON (\${geom.coordinates.map((ring) => "(" + ring.map((c) => c.join(" ")).join(", ") + ")").join(", ")})`;
         case "MULTIPOINT":
-            return \`MULTIPOINT (\${geom.coordinates.map((c) => "(" + c.join(" ") + ")").join(", ")})\`;
+            return `MULTIPOINT (\${geom.coordinates.map((c) => "(" + c.join(" ") + ")").join(", ")})`;
         case "MULTILINESTRING":
-            return \`MULTILINESTRING (\${geom.coordinates.map((line) => "(" + line.map((c) => c.join(" ")).join(", ") + ")").join(", ")})\`;
+            return `MULTILINESTRING (\${geom.coordinates.map((line) => "(" + line.map((c) => c.join(" ")).join(", ") + ")").join(", ")})`;
         case "MULTIPOLYGON":
-            return \`MULTIPOLYGON (\${geom.coordinates.map((poly) => "(" + poly.map((ring) => "(" + ring.map((c) => c.join(" ")).join(", ") + ")").join(", ") + ")").join(", ")})\`;
+            return `MULTIPOLYGON (\${geom.coordinates.map((poly) => "(" + poly.map((ring) => "(" + ring.map((c) => c.join(" ")).join(", ") + ")").join(", ") + ")").join(", ")})`;
         case "GEOMETRYCOLLECTION":
-            return \`GEOMETRYCOLLECTION (\${geom.geometries.map((g) => geomToWKT(g)).filter(Boolean).join(", ")})\`;
+            return `GEOMETRYCOLLECTION (\${geom.geometries.map((g) => geomToWKT(g)).filter(Boolean).join(", ")})`;
         default:
             return null;
     }
@@ -398,13 +398,13 @@ function processShapefile(files) {
 
             const fileSizeMB = shpFile.size / (1024 * 1024);
             if (fileSizeMB > 50) {
-                showToast(\`Arquivo grande (\${fileSizeMB.toFixed(1)} MB). O processamento pode levar mais tempo.\`, "warning");
+                showToast(`Arquivo grande (\${fileSizeMB.toFixed(1)} MB). O processamento pode levar mais tempo.`, "warning");
             }
 
             function updateProgress(percent) {
                 const progressBar = document.getElementById("shapefileProgressBar");
                 if (progressBar) {
-                    progressBar.style.width = \`\${percent}%\`;
+                    progressBar.style.width = `\${percent}%`;
                     progressBar.setAttribute("aria-valuenow", percent);
                 }
             }
@@ -490,30 +490,30 @@ function processShapefile(files) {
                         if (predominantType === "POLYGON") {
                             const polygonContents = wktStrings.map((wkt) => {
                                 const match = wkt.match(/POLYGON\s*\(\((.*?)\)\)/is);
-                                return match ? \`((\${match[1]}))\` : null;
+                                return match ? `((\${match[1]}))` : null;
                             }).filter(Boolean);
                             if (polygonContents.length > 0) {
-                                finalWkt = \`MULTIPOLYGON (\${polygonContents.join(", ")})\`;
+                                finalWkt = `MULTIPOLYGON (\${polygonContents.join(", ")})`;
                             }
                         } else if (predominantType === "POINT") {
                             const pointContents = wktStrings.map((wkt) => {
                                 const match = wkt.match(/POINT\s*\(\s*(.*?)\s*\)/i);
-                                return match ? \`(\${match[1]})\` : null;
+                                return match ? `(\${match[1]})` : null;
                             }).filter(Boolean);
                             if (pointContents.length > 0) {
-                                finalWkt = \`MULTIPOINT (\${pointContents.join(", ")})\`;
+                                finalWkt = `MULTIPOINT (\${pointContents.join(", ")})`;
                             }
                         } else if (predominantType === "LINESTRING") {
                             const lineContents = wktStrings.map((wkt) => {
                                 const match = wkt.match(/LINESTRING\s*\(\s*(.*?)\s*\)/i);
-                                return match ? \`(\${match[1]})\` : null;
+                                return match ? `(\${match[1]})` : null;
                             }).filter(Boolean);
                             if (lineContents.length > 0) {
-                                finalWkt = \`MULTILINESTRING (\${lineContents.join(", ")})\`;
+                                finalWkt = `MULTILINESTRING (\${lineContents.join(", ")})`;
                             }
                         }
                     } else if (wktStrings.length > 1) {
-                        finalWkt = \`GEOMETRYCOLLECTION (\${wktStrings.join(", ")})\`;
+                        finalWkt = `GEOMETRYCOLLECTION (\${wktStrings.join(", ")})`;
                     } else if (wktStrings.length === 1) {
                         finalWkt = wktStrings[0];
                     }
@@ -559,16 +559,16 @@ function handleShapefileUpload(files) {
             try {
                 const wicket = new Wkt.Wkt();
                 wicket.read(wktData.wkt);
-                const layerName = wktData.name || \`Camada \${userLayers.length + 1}\`;
+                const layerName = wktData.name || `Camada \${userLayers.length + 1}`;
                 const randomColor = getRandomColor();
                 const success = addLayerToMap(wktData.wkt, layerName, randomColor);
 
                 if (success) {
                     addLayerModal.hide();
                     if (wktData.wkt.startsWith("GEOMETRYCOLLECTION")) {
-                        showToast(\`Shapefile adicionado como camada "\${layerName}" com \${wktData.count} geometrias combinadas.\`, "success");
+                        showToast(`Shapefile adicionado como camada "\${layerName}" com \${wktData.count} geometrias combinadas.`, "success");
                     } else {
-                        showToast(\`Shapefile adicionado como camada "\${layerName}" com \${wktData.count} feições.\`, "success");
+                        showToast(`Shapefile adicionado como camada "\${layerName}" com \${wktData.count} feições.`, "success");
                     }
                 } else {
                     showToast("Não foi possível adicionar a camada. Verifique o formato do arquivo.", "danger");
@@ -594,13 +594,13 @@ function convertPolygonsToMultipolygon(input) {
     if (input.trim().toUpperCase().startsWith("MULTIPOLYGON")) return input.trim();
     const polygonParts = polygons.map((polygon) => {
         const match = polygon.match(/POLYGON\s*\(\((.*?)\)\)/i);
-        if (match && match[1]) return \`(\${match[1]})\`;
+        if (match && match[1]) return `(\${match[1]})`;
         return null;
     }).filter((part) => part !== null);
     if (polygonParts.length === 0) {
         return "Formato de entrada inválido. Verifique se os polígonos estão no formato correto.";
     }
-    return \`MULTIPOLYGON (\${polygonParts.join(",")})\`;
+    return `MULTIPOLYGON (\${polygonParts.join(",")})`;
 }
 
 function convertMultipolygonToPolygons(input) {
@@ -623,7 +623,7 @@ function convertMultipolygonToPolygons(input) {
             if (depth === 0) polygons.push(content.substring(start, i + 1));
         }
     }
-    return polygons.map((polygon) => \`POLYGON (\${polygon})\`).join("\n");
+    return polygons.map((polygon) => `POLYGON (\${polygon})`).join("\n");
 }
 
 function concatenateMultipolygons(input) {
@@ -649,7 +649,7 @@ function concatenateMultipolygons(input) {
     if (allPolygons.length === 0) {
         return "Formato de entrada inválido. Verifique se os multipolígonos estão no formato correto.";
     }
-    return \`MULTIPOLYGON (\${allPolygons.join(",")})\`;
+    return `MULTIPOLYGON (\${allPolygons.join(",")})`;
 }
 
 function convertMultipointToMultipolygon(input) {
@@ -680,9 +680,9 @@ function convertMultipointToMultipolygon(input) {
     const size = 0.00001;
     const polygons = points.map((point) => {
         const [x, y] = point.split(/\s+/).map(Number);
-        return \`((\${x - size} \${y - size}, \${x + size} \${y - size}, \${x + size} \${y + size}, \${x - size} \${y + size}, \${x - size} \${y - size}))\`;
+        return `((\${x - size} \${y - size}, \${x + size} \${y - size}, \${x + size} \${y + size}, \${x - size} \${y + size}, \${x - size} \${y - size}))`;
     });
-    return \`MULTIPOLYGON (\${polygons.join(", ")})\`;
+    return `MULTIPOLYGON (\${polygons.join(", ")})`;
 }
 
 function concatenateMultipoints(input) {
@@ -806,7 +806,7 @@ function importLayers(file) {
                 });
 
                 if (addedCount > 0) {
-                    showToast(\`\${addedCount} camadas importadas com sucesso!\`, "success");
+                    showToast(`\${addedCount} camadas importadas com sucesso!`, "success");
                     saveLayersToLocalStorage();
                     resolve(true);
                 } else {
@@ -840,7 +840,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const addLayerManualBtn = document.getElementById("addLayerManualBtn");
 
     // Create modal HTML
-    const addLayerModalHTML = \`
+    const addLayerModalHTML = `
 <div class="modal fade" id="addLayerModal" tabindex="-1" aria-labelledby="addLayerModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -899,7 +899,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
         </div>
     </div>
-</div>\`;
+</div>`;
 
     document.body.insertAdjacentHTML("beforeend", addLayerModalHTML);
     addLayerModal = new bootstrap.Modal(document.getElementById("addLayerModal"));
@@ -947,7 +947,7 @@ document.addEventListener("DOMContentLoaded", function () {
             outputText.value = "";
         } else {
             if (addSTGeomFromText.checked) {
-                convertedText = \`SELECT ST_GeomFromText('\${convertedText}')\`;
+                convertedText = `SELECT ST_GeomFromText('\${convertedText}')`;
             }
             outputText.value = convertedText;
             showToast("Conversão realizada com sucesso!", "success");
@@ -989,7 +989,7 @@ document.addEventListener("DOMContentLoaded", function () {
         isAddingManualLayer = true;
         editingLayerIdx = null;
         document.getElementById("addLayerModalLabel").textContent = "Adicionar Camada Convertida";
-        document.getElementById("editLayerName").value = \`Camada \${userLayers.length + 1}\`;
+        document.getElementById("editLayerName").value = `Camada \${userLayers.length + 1}`;
         document.getElementById("editLayerWKT").value = wkt;
         addLayerModal.show();
     };
