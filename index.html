@@ -1469,12 +1469,18 @@
                 // Código existente...
 
                 // Adicionar botões de salvar, exportar e importar
-                const buttonContainer = document.querySelector(".col-12.text-end.botoesmapa");
+                const buttonContainer = document.querySelector(".botoesmapa");
+                
+                // Verify the container exists
+                if (!buttonContainer) {
+                    console.error("Botão container não encontrado");
+                    return;
+                }
 
                 // Botão de salvar no localStorage
                 const saveBtn = document.createElement("button");
                 saveBtn.id = "saveLayersBtn";
-                saveBtn.className = "btn btn-warning ms-2";
+                saveBtn.className = "btn btn-warning btn-sm";
                 saveBtn.innerHTML = '<i class="fas fa-save"></i> Salvar Camadas';
                 saveBtn.title = "Salvar camadas no navegador";
                 buttonContainer.appendChild(saveBtn);
@@ -1482,7 +1488,7 @@
                 // Botão de exportar
                 const exportBtn = document.createElement("button");
                 exportBtn.id = "exportLayersBtn";
-                exportBtn.className = "btn btn-primary ms-2";
+                exportBtn.className = "btn btn-primary btn-sm ms-2";
                 exportBtn.innerHTML = '<i class="fas fa-file-export"></i> Exportar';
                 exportBtn.title = "Exportar camadas como arquivo";
                 buttonContainer.appendChild(exportBtn);
@@ -1490,7 +1496,7 @@
                 // Botão de importar
                 const importBtn = document.createElement("button");
                 importBtn.id = "importLayersBtn";
-                importBtn.className = "btn btn-secondary ms-2";
+                importBtn.className = "btn btn-secondary btn-sm ms-2";
                 importBtn.innerHTML = '<i class="fas fa-file-import"></i> Importar';
                 importBtn.title = "Importar camadas de arquivo";
                 buttonContainer.appendChild(importBtn);
