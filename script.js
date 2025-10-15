@@ -269,6 +269,7 @@ function addLayerFromGeojson(geojson, name = null, color = null, opacity = 0.4, 
             wktString = JSON.stringify(geoJsonData);
         }
         
+        const layerIndex = userLayers.length;
         userLayers.push({
             name: name,
             layer: layer,
@@ -278,6 +279,9 @@ function addLayerFromGeojson(geojson, name = null, color = null, opacity = 0.4, 
             visible: true,
             originalFillOpacity: opacity,
         });
+        
+        // Add click events for popup
+        addClickEventsToLayer(layer, name, layerIndex);
         
         updateLayerList();
         
@@ -669,14 +673,26 @@ function handleDragEnd(e) {
 }
 
 function addClickEventsToLayer(layer, layerName, layerIndex) {
-    if (layer.eachLayer) {
-        layer.eachLayer((subLayer) => {
-            addClickEventsToLayer(subLayer, layerName, layerIndex);
-        });
-    } else {
-        layer.on('click', function(e) {
-            showLayerPopup(e, layerName, layerIndex);
-        });
+    try {
+        // Handle layer groups (featureGroup, geoJSON layers)
+        if (layer.eachLayer && typeof layer.eachLayer === 'function') {
+            layer.eachLayer((subLayer) => {
+                if (subLayer.on && typeof subLayer.on === 'function') {
+                    subLayer.on('click', function(e) {
+                        showLayerPopup(e, layerName, layerIndex);
+                    });
+                }
+            });
+        }
+        
+        // Handle individual layers
+        if (layer.on && typeof layer.on === 'function') {
+            layer.on('click', function(e) {
+                showLayerPopup(e, layerName, layerIndex);
+            });
+        }
+    } catch (error) {
+        console.warn('Erro ao adicionar eventos de click à camada:', error);
     }
 }
 
