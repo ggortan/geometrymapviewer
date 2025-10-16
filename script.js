@@ -1168,35 +1168,38 @@ function convertMultipolygonToPolygons(input) {
 }
 
 function concatenateMultipolygons(input) {
-    // Regex melhorada para capturar MULTIPOLYGON completos
-    const regex = /MULTIPOLYGON\s*\(\s*(.*?)\s*\)/gis;
-    let match;
-    const allPolygons = [];
-    
-    while ((match = regex.exec(input)) !== null) {
-        const content = match[1];
-        let depth = 0, start = 0;
-        
-        // Extrai cada polígono ((coordenadas)) do MULTIPOLYGON
-        for (let i = 0; i < content.length; i++) {
-            if (content[i] === "(") {
-                if (depth === 0) start = i;
-                depth++;
-            } else if (content[i] === ")") {
-                depth--;
-                if (depth === 0) {
-                    const polygonContent = content.substring(start, i + 1);
-                    allPolygons.push(polygonContent);
-                }
+    // Remove espaços extras e quebras de linha
+    const lines = input
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l.length > 0);
+
+    let polys = [];
+
+    for (let line of lines) {
+        // Aceita tanto MULTIPOLYGON quanto POLYGON
+        if (/^MULTIPOLYGON\s*\(\(/i.test(line)) {
+            // Remove MULTIPOLYGON( e o último )
+            let inner = line.replace(/^MULTIPOLYGON\s*\(\s*/i, '').replace(/\)\s*$/, '');
+            // Remove parênteses duplos do início e fim de cada polígono
+            // Exemplo: ((...)),((...)) → ...,... (mantendo cada polígono entre parênteses)
+            // Divide por ')),((' e depois adiciona os parênteses de volta
+            let parts = inner.split(/\)\s*,\s*\(/).map(p => p.replace(/^\(+|\)+$/g, ''));
+            for (let p of parts) {
+                polys.push(`(${p})`);
             }
+        } else if (/^POLYGON\s*\(/i.test(line)) {
+            // Remove POLYGON e pega só o conteúdo
+            let inner = line.replace(/^POLYGON\s*\(/i, '').replace(/\)\s*$/, '');
+            polys.push(`(${inner})`);
         }
     }
-    
-    if (allPolygons.length === 0) {
-        return "Formato de entrada inválido. Verifique se os multipolígonos estão no formato correto.";
+
+    if (polys.length === 0) {
+        return 'ERRO: Nenhum MULTIPOLYGON ou POLYGON válido encontrado!';
     }
-    
-    return `MULTIPOLYGON (${allPolygons.join(",")})`;
+
+    return `MULTIPOLYGON(${polys.join(',')})`;
 }
 
 function convertMultipointToMultipolygon(input) {

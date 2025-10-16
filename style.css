@@ -316,6 +316,7 @@ body {
 
 .converter-panel.show {
     display: flex;
+    z-index: 999;
 }
 
 .converter-header {
@@ -541,28 +542,6 @@ textarea.form-control {
     border-width: 0.2rem;
 }
 
-/* Select2 Customizations */
-.select2-container--bootstrap-5 .select2-selection {
-    min-height: 38px;
-}
-
-.select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
-    padding-top: 6px;
-    padding-bottom: 6px;
-}
-
-.select2-results__option {
-    padding: 8px 12px;
-}
-
-/* Optgroup styling */
-.select2-results__group {
-    font-weight: bold;
-    color: #495057;
-    background-color: #f8f9fa;
-    padding: 8px 12px;
-    border-bottom: 1px solid #dee2e6;
-}
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
