@@ -20,10 +20,7 @@ Ferramenta online para converter entre formatos de polígonos, multipolígonos e
 ## Tecnologias Utilizadas
 
 - [Bootstrap 5](https://getbootstrap.com/)
-- [Font Awesome 6](https://fontawesome.com/)
 - [Leaflet](https://leafletjs.com/)
-- [jQuery](https://jquery.com/)
-- [Select2](https://select2.org/)
 
 ## Executando Localmente
 
